@@ -45,14 +45,14 @@
             container.innerHTML = 'Carregando...';
 
             // Fazendo a busca com relacionamentos (Joins)
-            let query = supabase
-                .from('Artigo')
+            let query = supabaseClient
+                .from('artigo')
                 .select(`
                     *,
-                    Artigo_autor ( Autor ( nome ) ),
-                    Artigo_PalavraChave ( Palavras_chaves ( palavra_chave ) )
+                    artigo_autor ( autor ( nome ) ),
+                    artigo_palavrachave ( palavras_chaves ( palavra_chave ) )
                 `);
-
+    
             if (searchTerm) {
                 query = query.ilike('titulo', `%${searchTerm}%`);
             }

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repositório de Artigos Científicos</title>
+    <!-- Tailwind CSS para um design moderno rápido -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Navegação -->
+    <nav class="bg-blue-800 text-white p-4 shadow-lg">
+        <div class="container mx-auto">
+            <h1 class="text-2xl font-bold">Biblioteca Científica</h1>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-6">
+        <!-- Barra de Busca -->
+        <div class="mb-8 flex gap-4">
+            <input type="text" id="searchInput" placeholder="Buscar artigo por título..." class="flex-1 p-2 border rounded shadow-sm">
+            <button onclick="fetchArtigos()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Pesquisar</button>
+        </div>
+
+        <!-- Lista de Artigos -->
+        <div id="artigosList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Os cards dos artigos aparecerão aqui via JavaScript -->
+            <p class="text-gray-500">Carregando artigos...</p>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO DO SUPABASE
+        // Substitua pelos seus dados reais do painel do Supabase
+        const SUPABASE_URL = 'SUA_URL_AQUI';
+        const SUPABASE_KEY = 'SUA_ANON_KEY_AQUI';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function fetchArtigos() {
+            const searchTerm = document.getElementById('searchInput').value;
+            const container = document.getElementById('artigosList');
+            container.innerHTML = 'Carregando...';
+
+            // Fazendo a busca com relacionamentos (Joins)
+            let query = supabase
+                .from('Artigo')
+                .select(`
+                    *,
+                    Artigo_autor ( Autor ( nome ) ),
+                    Artigo_PalavraChave ( Palavras_chaves ( palavra_chave ) )
+                `);
+
+            if (searchTerm) {
+                query = query.ilike('titulo', `%${searchTerm}%`);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error(error);
+                container.innerHTML = '<p class="text-red-500">Erro ao carregar dados.</p>';
+                return;
+            }
+
+            renderArtigos(data);
+        }
+
+        function renderArtigos(artigos) {
+            const container = document.getElementById('artigosList');
+            container.innerHTML = '';
+
+            if (artigos.length === 0) {
+                container.innerHTML = '<p>Nenhum artigo encontrado.</p>';
+                return;
+            }
+
+            artigos.forEach(artigo => {
+                // Extraindo autores e palavras-chave dos relacionamentos
+                const autores = artigo.Artigo_autor.map(a => a.Autor.nome).join(', ');
+                const tags = artigo.Artigo_PalavraChave.map(p => p.Palavras_chaves.palavra_chave);
+
+                const card = `
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition">
+                        <span class="text-xs font-bold text-blue-500 uppercase">${artigo.tipo_documento || 'Artigo'}</span>
+                        <h2 class="text-xl font-bold mt-1 mb-2">${artigo.titulo}</h2>
+                        <p class="text-gray-600 text-sm mb-4 line-clamp-3">${artigo.resumo || 'Sem resumo disponível.'}</p>
+                        
+                        <div class="mb-4">
+                            <span class="text-sm font-semibold text-gray-700">Autores:</span>
+                            <span class="text-sm text-gray-600">${autores || 'N/A'}</span>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${tags.map(t => `<span class="bg-gray-200 px-2 py-1 rounded text-xs text-gray-700">${t}</span>`).join('')}
+                        </div>
+
+                        <div class="border-t pt-4 flex justify-between items-center text-xs text-gray-500">
+                            <span>Ano: ${artigo.ano}</span>
+                            <span>Citações: ${artigo.qtd_citacao || 0}</span>
+                            <a href="${artigo.link}" target="_blank" class="text-blue-600 font-bold hover:underline">Acessar Link</a>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // Carregar ao iniciar
+        fetchArtigos();
+    </script>
+</body>
+</html>

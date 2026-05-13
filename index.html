@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
 
@@ -19,88 +21,107 @@
     </nav>
 
     <div class="container mx-auto p-6">
-        <!-- Barra de Busca -->
-        <div class="mb-8 flex gap-4">
-            <input type="text" id="searchInput" placeholder="Buscar artigo por título..." class="flex-1 p-2 border rounded shadow-sm">
-            <button onclick="fetchArtigos()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">Pesquisar</button>
+        <!-- Controles: Busca e botões de tabelas -->
+        <div class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div class="md:col-span-2 flex items-center">
+                <p class="text-sm text-gray-600">Use os botões à direita para navegar entre as tabelas.</p>
+            </div>
+
+            <div class="flex gap-2 justify-start md:justify-end">
+                <button onclick="showTable('Autor')" class="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700">Autores</button>
+                <button onclick="showTable('Artigo')" class="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700">Artigos</button>
+                <button onclick="showTable('Palavras_chaves')" class="bg-yellow-600 text-white px-3 py-2 rounded hover:bg-yellow-700">Palavras-chave</button>
+                <button onclick="showTable('Referencia')" class="bg-pink-600 text-white px-3 py-2 rounded hover:bg-pink-700">Referências</button>
+            </div>
+        </div>
+
+        <!-- CSV import section (bulk, automatic by filename) -->
+        <div class="container mx-auto p-6">
+            <section class="bg-white p-6 rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold mb-3">Carregar CSVs (bulk) — nomes dos arquivos determinam as tabelas</h3>
+                <p class="text-sm text-gray-600 mb-3">Envie vários arquivos CSV ao mesmo tempo. O nome do arquivo deve corresponder à tabela (ex.: Autor.csv, Artigo.csv, Palavras_chaves.csv, Referencia.csv, Artigo_autor.csv, Artigo_PalavraChave.csv, Artigo_referencia.csv).</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Arquivos CSV</label>
+                        <input id="csvFiles" type="file" accept=".csv" multiple class="mt-1" />
+                    </div>
+
+                    <div class="md:col-span-2 flex gap-2 justify-end">
+                        <button id="parseBtn" class="bg-green-600 text-white px-4 py-2 rounded">Carregar todos os dados</button>
+                        <button id="insertBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Enviar ao banco (bulk)</button>
+                        <button id="downloadSqlBtn" class="bg-gray-600 text-white px-4 py-2 rounded">Download SQL (fallback)</button>
+                    </div>
+                </div>
+
+                <div id="csvPreviewContainer" class="mt-4 hidden">
+                    <h4 class="font-semibold mb-2">Arquivos detectados</h4>
+                    <div id="csvPreview" class="overflow-auto max-h-64 bg-gray-50 p-2 rounded"></div>
+                    <div id="importStatus" class="mt-3 text-sm"></div>
+                </div>
+            </section>
         </div>
 
         <!-- Lista de Artigos -->
         <div id="artigosList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Os cards dos artigos aparecerão aqui via JavaScript -->
-            <p class="text-gray-500">Carregando artigos...</p>
+            <p class="text-gray-500 text-center col-span-full">Carregando artigos...</p>
         </div>
+        
+        <!-- Inline table section -->
+        <section id="tableSection" class="mt-8 bg-white p-6 rounded-lg shadow-sm">
+            <h3 id="tableViewTitle" class="text-lg font-semibold text-gray-800">Tabelas</h3>
+            <div id="tableView" class="mt-2 text-sm text-gray-700">
+                <p class="text-gray-500">Clique em um dos botões acima para carregar a tabela correspondente aqui.</p>
+            </div>
+        </section>
     </div>
 
     <script>
         // CONFIGURAÇÃO DO SUPABASE
-        // Substitua pelos seus dados reais do painel do Supabase
         const SUPABASE_URL = 'https://pjkjlyunixdoclddsrlh.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_spOTHxJW9FWHgFo4qIJKmA_yAH8-nW1';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // CORREÇÃO: Usando supabaseClient para evitar erro de "already declared"
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function fetchArtigos() {
-            const searchTerm = document.getElementById('searchInput').value;
-            const container = document.getElementById('artigosList');
-            container.innerHTML = 'Carregando...';
+        // MOCK data removed — client now relies solely on Supabase for live data.
 
-            // Fazendo a busca com relacionamentos (Joins)
-            let query = supabaseClient
-                .from('artigo')
-                .select(`
-                    *,
-                    artigo_autor ( autor ( nome ) ),
-                    artigo_palavrachave ( palavras_chaves ( palavra_chave ) )
-                `);
-    
-            if (searchTerm) {
-                query = query.ilike('titulo', `%${searchTerm}%`);
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error(error);
-                container.innerHTML = '<p class="text-red-500">Erro ao carregar dados.</p>';
-                return;
-            }
-
-            renderArtigos(data);
-        }
+        // removed per-article search/fetch; article list not preloaded
 
         function renderArtigos(artigos) {
             const container = document.getElementById('artigosList');
             container.innerHTML = '';
 
-            if (artigos.length === 0) {
-                container.innerHTML = '<p>Nenhum artigo encontrado.</p>';
+            if (!artigos || artigos.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center col-span-full">Nenhum artigo encontrado.</p>';
                 return;
             }
 
             artigos.forEach(artigo => {
-                // Extraindo autores e palavras-chave dos relacionamentos
-                const autores = artigo.Artigo_autor.map(a => a.Autor.nome).join(', ');
-                const tags = artigo.Artigo_PalavraChave.map(p => p.Palavras_chaves.palavra_chave);
+                // Acessando propriedades (compatível com local e remoto após normalização)
+                const autores = artigo.artigo_autor?.map(a => a.autor?.nome || a.autor?.nome_completo).filter(n => n).join(', ') || 'N/A';
+                const tags = artigo.artigo_palavrachave?.map(p => p.palavras_chaves?.palavra_chave).filter(t => t) || [];
 
                 const card = `
-                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition">
-                        <span class="text-xs font-bold text-blue-500 uppercase">${artigo.tipo_documento || 'Artigo'}</span>
-                        <h2 class="text-xl font-bold mt-1 mb-2">${artigo.titulo}</h2>
-                        <p class="text-gray-600 text-sm mb-4 line-clamp-3">${artigo.resumo || 'Sem resumo disponível.'}</p>
-                        
-                        <div class="mb-4">
-                            <span class="text-sm font-semibold text-gray-700">Autores:</span>
-                            <span class="text-sm text-gray-600">${autores || 'N/A'}</span>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition border border-gray-100 flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-blue-500 uppercase">${artigo.tipo_documento || 'Artigo'}</span>
+                            <h2 class="text-xl font-bold mt-1 mb-2 text-gray-800">${artigo.titulo}</h2>
+                            <p class="text-gray-600 text-sm mb-4 line-clamp-3">${artigo.resumo || 'Sem resumo disponível.'}</p>
+                            
+                            <div class="mb-4">
+                                <p class="text-sm font-semibold text-gray-700">Autores:</p>
+                                <p class="text-sm text-gray-600">${autores}</p>
+                            </div>
+
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                ${tags.map(t => `<span class="bg-blue-50 px-2 py-1 rounded text-xs text-blue-700 border border-blue-100">${t}</span>`).join('')}
+                            </div>
                         </div>
 
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            ${tags.map(t => `<span class="bg-gray-200 px-2 py-1 rounded text-xs text-gray-700">${t}</span>`).join('')}
-                        </div>
-
-                        <div class="border-t pt-4 flex justify-between items-center text-xs text-gray-500">
-                            <span>Ano: ${artigo.ano}</span>
+                        <div class="border-t pt-4 flex justify-between items-center text-xs text-gray-500 mt-auto">
+                            <span>Ano: ${artigo.ano || '---'}</span>
                             <span>Citações: ${artigo.qtd_citacao || 0}</span>
-                            <a href="${artigo.link}" target="_blank" class="text-blue-600 font-bold hover:underline">Acessar Link</a>
+                            <a href="${artigo.link}" target="_blank" class="text-blue-600 font-bold hover:underline">Acessar</a>
                         </div>
                     </div>
                 `;
@@ -108,8 +129,495 @@
             });
         }
 
-        // Carregar ao iniciar
-        fetchArtigos();
+
+        // --- Inline table UI (replaces modal) ---
+        let CURRENT_TABLE = null;
+        const LAST_FETCH = { Artigo: [] };
+
+        async function showTable(tableName) {
+            CURRENT_TABLE = tableName;
+            const container = document.getElementById('tableView');
+            const title = document.getElementById('tableViewTitle');
+            title.textContent = `Tabela: ${tableName}`;
+
+            if (tableName === 'Artigo') {
+                await loadArtigos();
+                document.getElementById('tableSection').scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+
+            // For non-artigo tables, fetch directly from Supabase
+            try {
+                const tableLower = tableName.toLowerCase();
+                const { data, error } = await supabaseClient.from(tableLower).select('*');
+                if (error) throw error;
+                const rows = data || [];
+                if (!rows || rows.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">Sem registros nesta tabela.</p>';
+                } else {
+                    renderTable(tableName, rows);
+                }
+            } catch (err) {
+                console.error(`Erro ao buscar tabela ${tableName}:`, err);
+                container.innerHTML = `<p class="text-red-500">Erro ao carregar tabela ${tableName}: ${escapeHtml(err.message || String(err))}</p>`;
+            }
+
+            document.getElementById('tableSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderTable(tableName, rows) {
+            const container = document.getElementById('tableView');
+            const keys = Array.from(rows.reduce((s, r) => { Object.keys(r).forEach(k => s.add(k)); return s; }, new Set()));
+            const thead = `<thead class="bg-gray-50"><tr>${keys.map(k => `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">${k}</th>`).join('')}</tr></thead>`;
+
+            const trows = rows.map(r => {
+                const rowHtml = keys.map(k => `<td class="px-3 py-2 text-sm text-gray-700">${escapeHtml(String(r[k] ?? ''))}</td>`).join('');
+                if (tableName === 'Artigo') {
+                    return `<tr class="border-t hover:bg-gray-50 cursor-pointer" onclick="showArticleDetail(${r.id})">${rowHtml}</tr>`;
+                }
+                return `<tr class="border-t">${rowHtml}</tr>`;
+            }).join('');
+
+            container.innerHTML = `<div class="overflow-auto max-h-96 mt-2"><table class="min-w-full bg-white rounded">${thead}<tbody>${trows}</tbody></table></div>`;
+            document.getElementById('detailView').innerHTML = '<p class="text-gray-500">Clique em um artigo para ver os detalhes aqui.</p>';
+        }
+
+        async function loadArtigos() {
+            const container = document.getElementById('tableView');
+            container.innerHTML = '<p class="text-gray-500">Carregando todos os artigos...</p>';
+            try {
+                const { data, error } = await supabaseClient.from('artigo').select('*');
+                if (error) throw error;
+                const rows = data || [];
+                LAST_FETCH.Artigo = rows;
+                if (!rows || rows.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">Nenhum artigo encontrado na base de dados.</p>';
+                } else {
+                    renderTable('Artigo', rows);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar artigos:', err.message || err);
+                container.innerHTML = `<p class="text-red-500">Erro ao carregar artigos: ${escapeHtml(err.message || String(err))}</p>`;
+            }
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // search removed; CSV import will load full data when requested
+
+        // --- CSV import logic (multi-file bulk) ---
+        let PARSED_FILES = {}; // { tableName: [rows] }
+
+        document.getElementById('parseBtn').addEventListener('click', () => {
+            const input = document.getElementById('csvFiles');
+            const files = Array.from(input.files || []);
+            if (files.length === 0) { alert('Selecione um ou mais arquivos CSV.'); return; }
+            PARSED_FILES = {};
+            const preview = document.getElementById('csvPreview');
+            preview.innerHTML = '';
+            const status = document.getElementById('importStatus'); status.textContent = '';
+
+            let remaining = files.length;
+            files.forEach(file => {
+                const tableName = inferTableNameFromFilename(file.name);
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: results => {
+                        // If this looks like a combined export (base.csv), split into normalized tables
+                        if (tableName.toLowerCase().includes('base') || looksLikeCombinedExport(results.meta.fields || [], results.data)) {
+                            const splitted = splitCombinedCsv(results.data);
+                            // merge splitted tables into PARSED_FILES
+                            Object.keys(splitted).forEach(k => {
+                                PARSED_FILES[k] = (PARSED_FILES[k] || []).concat(splitted[k]);
+                                const div = document.createElement('div');
+                                div.className = 'mb-2';
+                                div.innerHTML = `<strong>${escapeHtml(file.name)}</strong> → <em>${escapeHtml(k)}</em> (${splitted[k].length} linhas)`;
+                                preview.appendChild(div);
+                            });
+                        } else {
+                            PARSED_FILES[tableName] = (PARSED_FILES[tableName] || []).concat(results.data);
+                            const div = document.createElement('div');
+                            div.className = 'mb-2';
+                            div.innerHTML = `<strong>${escapeHtml(file.name)}</strong> → <em>${escapeHtml(tableName)}</em> (${results.data.length} linhas)`;
+                            preview.appendChild(div);
+                        }
+                        remaining -= 1;
+                        if (remaining === 0) document.getElementById('csvPreviewContainer').classList.remove('hidden');
+                    },
+                    error: err => {
+                        const div = document.createElement('div'); div.className = 'text-red-600'; div.textContent = `Erro ao parsear ${file.name}: ${err.message}`; preview.appendChild(div);
+                        remaining -= 1;
+                        if (remaining === 0) document.getElementById('csvPreviewContainer').classList.remove('hidden');
+                    }
+                });
+            });
+        });
+
+        function looksLikeCombinedExport(fields, data) {
+            const lower = (fields || []).map(f => f.toLowerCase());
+            // check for common columns present in provided CSV sample
+            return lower.includes('title') || lower.includes('authors') || lower.includes('author(s) id') || lower.includes('author full names');
+        }
+
+        function splitCombinedCsv(rows) {
+            // Normalize and extract authors, keywords, references and articles into separate arrays
+            const Autor = {}; // id -> {id,nome,nome_completo}
+            const Palavras_chaves = {};// palavra -> {id,palavra_chave}
+            const Referencia = {};// refText -> {id,referencia}
+            const Artigo = [];
+            const Artigo_autor = [];
+            const Artigo_PalavraChave = [];
+            const Artigo_referencia = [];
+
+            let artigoIdCounter = 1;
+            let palavraIdCounter = 1;
+            let referenciaIdCounter = 1;
+
+            rows.forEach(row => {
+                const artigoId = artigoIdCounter++;
+
+                // Article fields
+                const titulo = row['Title'] || row['title'] || row['Title '] || row['Titulo'] || row['Title'];
+                const ano = Number(row['Year'] || row['year'] || row['Year ']) || null;
+                const source_title = row['Source title'] || row['Source'] || row['Source title'] || null;
+                const qtd_citacao = Number(row['Cited by'] || row['Cited by '] || row['Cited_by'] || row['Cited by']) || 0;
+                const doi = row['DOI'] || row['Doi'] || null;
+                const link = row['Link'] || row['URL'] || null;
+                const resumo = row['Abstract'] || row['abstract'] || row['Resumo'] || null;
+                const issn = row['ISSN'] || null;
+                const linguagem = row['Language of Original Document'] || row['Language'] || row['language'] || null;
+                const tipo_documento = row['Document Type'] || null;
+                const tipo_acesso = row['Open Access'] || null;
+
+                Artigo.push({ id: artigoId, titulo, ano, source_title, qtd_citacao, doi, link, resumo, issn, isbn: null, linguagem, tipo_documento, estagio_publicacao: null, tipo_acesso });
+
+                // Authors: prefer Author(s) ID and Author full names
+                const authorIdsRaw = row['Author(s) ID'] || row['Author(s) ID '] || row['Author(s) ID'] || '';
+                const authorFullRaw = row['Author full names'] || row['Author full names '] || row['Author full names'] || '';
+                const authorsCell = row['Authors'] || row['Authors '] || row['Authors'] || '';
+
+                // Parse IDs and full names
+                const ids = authorIdsRaw ? authorIdsRaw.split(/[;\|,]+/).map(s => s.trim()).filter(Boolean) : [];
+                const fulls = authorFullRaw ? authorFullRaw.split(/[;\|]+/).map(s => s.trim()).filter(Boolean) : [];
+
+                // If ids and fulls align, use them together; else try to parse ids from fulls
+                if (ids.length === fulls.length && ids.length > 0) {
+                    for (let i = 0; i < ids.length; i++) {
+                        const id = ids[i];
+                        const full = fulls[i];
+                        const nameOnly = (full.split('(')[0] || full).replace(/,$/, '').trim();
+                        const short = nameOnly.split(',')[0] || nameOnly.split(' ')[0] || nameOnly;
+                        Autor[id] = Autor[id] || { id: String(id), nome: short, nome_completo: nameOnly };
+                        Artigo_autor.push({ id_artigo: artigoId, id_autor: String(id) });
+                    }
+                } else if (fulls.length > 0) {
+                    fulls.forEach(f => {
+                        // format: Last, First (id)
+                        const m = f.match(/^(.*)\s*\(([^)]+)\)\s*$/);
+                        if (m) {
+                            const nameOnly = m[1].trim();
+                            const id = m[2].trim();
+                            const short = nameOnly.split(',')[0] || nameOnly.split(' ')[0] || nameOnly;
+                            Autor[id] = Autor[id] || { id: String(id), nome: short, nome_completo: nameOnly };
+                            Artigo_autor.push({ id_artigo: artigoId, id_autor: String(id), titulo });
+                        } else {
+                            const nameOnly = f.trim();
+                            const id = `a_gen_${Object.keys(Autor).length + 1}`;
+                            const short = nameOnly.split(',')[0] || nameOnly.split(' ')[0] || nameOnly;
+                            Autor[id] = Autor[id] || { id: String(id), nome: short, nome_completo: nameOnly };
+                            Artigo_autor.push({ id_artigo: artigoId, id_autor: String(id), titulo });
+                        }
+                    });
+                } else if (authorsCell) {
+                    // authors short names
+                    const parts = authorsCell.split(/[;\|]+/).map(s => s.trim()).filter(Boolean);
+                    parts.forEach((p, idx) => {
+                        const id = `a_gen_${Object.keys(Autor).length + 1}`;
+                        const nameOnly = p;
+                        const short = nameOnly.split(',')[0] || nameOnly.split(' ')[0] || nameOnly;
+                        Autor[id] = Autor[id] || { id: String(id), nome: short, nome_completo: nameOnly };
+                            Artigo_autor.push({ id_artigo: artigoId, id_autor: String(id), titulo });
+                    });
+                }
+
+                // Keywords: Author Keywords
+                const kwRaw = row['Author Keywords'] || row['Author Keywords '] || row['Author Keywords'] || row['Author Keywords'];
+                const kws = kwRaw ? kwRaw.split(/[;\|]+/).map(s => s.trim()).filter(Boolean) : [];
+                kws.forEach(k => {
+                    if (!Palavras_chaves[k]) {
+                        Palavras_chaves[k] = { id: palavraIdCounter++, palavra_chave: k };
+                    }
+                    Artigo_PalavraChave.push({ id_artigo: artigoId, id_palavra_chave: Palavras_chaves[k].id, titulo });
+                });
+
+                // References: naive split by ";" and ")" boundaries
+                const refsRaw = row['References'] || row['References '] || row['References'] || '';
+                const refs = refsRaw ? refsRaw.split(/;(?=[^)]|$)/).map(s => s.trim()).filter(Boolean) : [];
+                refs.forEach(r => {
+                    if (!Referencia[r]) {
+                        Referencia[r] = { id: referenciaIdCounter++, referencia: r };
+                    }
+                    Artigo_referencia.push({ id_artigo: artigoId, id_referencia: Referencia[r].id, titulo });
+                });
+            });
+
+            // Convert maps to arrays
+            const AutorArr = Object.values(Autor);
+            const PalavrasArr = Object.values(Palavras_chaves);
+            const ReferenciaArr = Object.values(Referencia);
+
+            return {
+                Autor: AutorArr,
+                Artigo: Artigo,
+                Palavras_chaves: PalavrasArr,
+                Referencia: ReferenciaArr,
+                Artigo_autor: Artigo_autor,
+                Artigo_PalavraChave: Artigo_PalavraChave,
+                Artigo_referencia: Artigo_referencia
+            };
+        }
+
+        document.getElementById('insertBtn').addEventListener('click', async () => {
+            if (!PARSED_FILES || Object.keys(PARSED_FILES).length === 0) { alert('Nenhum CSV processado.'); return; }
+            const status = document.getElementById('importStatus');
+            status.textContent = 'Iniciando importação...';
+
+            // Order: core tables first, then relationship tables
+            const order = ['Autor','Artigo','Palavras_chaves','Referencia','Artigo_autor','Artigo_PalavraChave','Artigo_referencia'];
+            const toInsert = order.filter(t => PARSED_FILES[t]);
+
+            const failed = [];
+            // We'll store DB-assigned ids for mapping relationships
+            const dbIds = { Artigo: {}, Autor: {}, Palavras_chaves: {}, Referencia: {} };
+
+            for (const t of toInsert) {
+                status.textContent = `Inserindo ${t} (${PARSED_FILES[t].length} linhas)...`;
+                // For relationships, we'll skip now and handle after core inserts
+                if (t === 'Artigo_autor' || t === 'Artigo_PalavraChave' || t === 'Artigo_referencia') continue;
+
+                const rows = PARSED_FILES[t].map(r => autoMapRow(t, r));
+                try {
+                    // insert in one go (chunks)
+                    let inserted = [];
+                    for (let i = 0; i < rows.length; i += 100) {
+                        const chunk = rows.slice(i, i+100);
+                        const { data, error } = await supabaseClient.from(t.toLowerCase()).insert(chunk).select('*');
+                        if (error) throw error;
+                        inserted = inserted.concat(data || []);
+                    }
+
+                    // record DB ids to map relationships; try to match by unique fields (titulo for Artigo, id or nome for Autor, palavra_chave for Palavras_chaves, referencia for Referencia)
+                    if (t === 'Artigo') {
+                        inserted.forEach(row => { if (row.id) dbIds.Artigo[row.titulo || row.id] = row.id; });
+                    } else if (t === 'Autor') {
+                        inserted.forEach(row => { if (row.id) dbIds.Autor[row.id] = row.id; });
+                    } else if (t === 'Palavras_chaves') {
+                        inserted.forEach(row => { if (row.id) dbIds.Palavras_chaves[row.palavra_chave] = row.id; });
+                    } else if (t === 'Referencia') {
+                        inserted.forEach(row => { if (row.id) dbIds.Referencia[row.referencia] = row.id; });
+                    }
+
+                } catch (err) {
+                    console.error(`Erro inserindo ${t}:`, err);
+                    failed.push({ table: t, error: err, rows });
+                }
+            }
+
+            // Now handle relationships: map local artigoId/title to DB artigo ids
+            function resolveArtigoDbId(rel) {
+                // try match by title
+                const titulo = rel.titulo;
+                if (!titulo) return null;
+                // exact match by title
+                if (dbIds.Artigo[titulo]) return dbIds.Artigo[titulo];
+                // fallback: if LAST_FETCH contains same title
+                const found = LAST_FETCH.Artigo.find(a => (a.titulo || '').trim() === (titulo || '').trim());
+                if (found && found.id) return found.id;
+                return null;
+            }
+
+            const relOrder = toInsert.filter(t => ['Artigo_autor','Artigo_PalavraChave','Artigo_referencia'].includes(t));
+            for (const t of relOrder) {
+                status.textContent = `Inserindo relacionamentos ${t} (${PARSED_FILES[t].length} linhas)...`;
+                // map rows
+                const mappedRows = PARSED_FILES[t].map(r => {
+                    const base = autoMapRow(t, r);
+                    const artigo_db = resolveArtigoDbId(r) || base['id_artigo'] || r.id_artigo;
+                    let targetRow = {};
+                    if (t === 'Artigo_autor') {
+                        targetRow.id_artigo = artigo_db;
+                        targetRow.id_autor = base['id_autor'] || base['id'] || r.id_autor;
+                    } else if (t === 'Artigo_PalavraChave') {
+                        targetRow.id_artigo = artigo_db;
+                        targetRow.id_palavra_chave = base['id_palavra_chave'] || base['id'] || r.id_palavra_chave || dbIds.Palavras_chaves[r['palavra_chave']];
+                    } else if (t === 'Artigo_referencia') {
+                        targetRow.id_artigo = artigo_db;
+                        targetRow.id_referencia = base['id_referencia'] || base['id'] || r.id_referencia || dbIds.Referencia[r['referencia']];
+                    }
+                    return targetRow;
+                }).filter(rr => rr.id_artigo && (rr.id_autor || rr.id_palavra_chave || rr.id_referencia));
+
+                // Remove any rows where resolved ids are missing
+                const validRows = mappedRows.filter(r => r.id_artigo && (r.id_autor || r.id_palavra_chave || r.id_referencia));
+                if (validRows.length === 0) {
+                    console.warn(`Nenhum relacionamento válido para inserir em ${t}`);
+                    continue;
+                }
+
+                // Deduplicate against existing DB rows to avoid unique-constraint (409) errors
+                try {
+                    const tableLower = t.toLowerCase();
+                    // determine pair column name (the non-artigo id)
+                    let pairCol = 'id_autor';
+                    if (t === 'Artigo_PalavraChave') pairCol = 'id_palavra_chave';
+                    if (t === 'Artigo_referencia') pairCol = 'id_referencia';
+
+                    // gather distinct artigo ids to scope the query
+                    const artigoIds = Array.from(new Set(validRows.map(r => r.id_artigo).filter(Boolean)));
+                    // query existing relationships for these artigos
+                    let existing = [];
+                    if (artigoIds.length > 0) {
+                        const { data: exData, error: exErr } = await supabaseClient.from(tableLower).select(`id_artigo, ${pairCol}`).in('id_artigo', artigoIds);
+                        if (exErr) throw exErr;
+                        existing = exData || [];
+                    }
+
+                    const existingSet = new Set(existing.map(e => `${e.id_artigo}|${e[pairCol]}`));
+                    const rowsToInsert = validRows.filter(r => {
+                        const key = `${r.id_artigo}|${r[pairCol]}`;
+                        if (existingSet.has(key)) return false;
+                        existingSet.add(key); // also dedupe duplicates within the uploaded CSV
+                        return true;
+                    });
+
+                    if (rowsToInsert.length === 0) {
+                        console.log(`Nenhum novo relacionamento para ${t} após deduplicação.`);
+                        continue;
+                    }
+
+                    // insert remaining rows in chunks
+                    for (let i = 0; i < rowsToInsert.length; i += 100) {
+                        const chunk = rowsToInsert.slice(i, i+100);
+                        const { error } = await supabaseClient.from(tableLower).insert(chunk);
+                        if (error) throw error;
+                    }
+                } catch (err) {
+                    console.error(`Erro inserindo relacionamentos ${t}:`, err);
+                    // include a bit more diagnostic info for the user
+                    failed.push({ table: t, error: { message: err.message || String(err), details: err.details || err }, rows: validRows });
+                }
+            }
+
+            if (failed.length === 0) {
+                status.innerHTML = '<span class="text-green-600">Importação completa com sucesso.</span>';
+            } else {
+                status.innerHTML = `<span class="text-red-600">Falhas em ${failed.length} tabelas — gerando SQL para download.</span>`;
+                const sqls = failed.map(f => generateInsertSQL(f.table, f.rows)).join('\n\n');
+                const blob = new Blob([sqls], { type: 'text/sql' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `import_fallback.sql`; a.click(); URL.revokeObjectURL(url);
+            }
+        });
+
+        document.getElementById('downloadSqlBtn').addEventListener('click', () => {
+            if (!PARSED_FILES || Object.keys(PARSED_FILES).length === 0) { alert('Nenhum CSV processado.'); return; }
+            const sqls = Object.keys(PARSED_FILES).map(t => generateInsertSQL(t, PARSED_FILES[t].map(r => autoMapRow(t, r)))).join('\n\n');
+            const blob = new Blob([sqls], { type: 'text/sql' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `import_all.sql`; a.click(); URL.revokeObjectURL(url);
+        });
+
+        function inferTableNameFromFilename(name) {
+            // Remove extension and normalize
+            const base = name.split('/').pop().split('\\').pop().split('.').slice(0, -1).join('.') || name;
+            // Accept several forms
+            const mapping = {
+                'autor': 'Autor', 'autores':'Autor',
+                'artigo': 'Artigo', 'artigos':'Artigo',
+                'palavras_chaves':'Palavras_chaves','palavras-chave':'Palavras_chaves','palavraschaves':'Palavras_chaves',
+                'referencia':'Referencia','referencias':'Referencia',
+                'artigo_autor':'Artigo_autor','artigo_autores':'Artigo_autor',
+                'artigo_palavrachave':'Artigo_PalavraChave','artigo_palavrachaves':'Artigo_PalavraChave','artigo_palavra_chave':'Artigo_PalavraChave',
+                'artigo_referencia':'Artigo_referencia','artigo_referencias':'Artigo_referencia'
+            };
+            const key = base.toLowerCase().replace(/\s+/g,'_').replace(/\./g,'');
+            return mapping[key] || base;
+        }
+
+        function autoMapRow(tableName, csvRow) {
+            // Try to map CSV headers to table columns by exact or normalized match
+            const cols = getTableColumns(tableName);
+            const mapped = {};
+            for (const h in csvRow) {
+                const normalized = h.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+                // find best column match
+                let found = cols.find(c => c.toLowerCase() === normalized || c.toLowerCase() === h.toLowerCase());
+                if (!found) {
+                    // try contains
+                    found = cols.find(c => normalized.includes(c.toLowerCase()) || c.toLowerCase().includes(normalized));
+                }
+                if (found) mapped[found] = csvRow[h] === '' ? null : csvRow[h];
+            }
+            return mapped;
+        }
+
+        function getTableColumns(tableName) {
+            switch (tableName) {
+                case 'Autor': return ['id','nome','nome_completo'];
+                case 'Artigo': return ['id','titulo','ano','source_title','qtd_citacao','doi','link','resumo','issn','isbn','linguagem','tipo_documento','estagio_publicacao','tipo_acesso'];
+                case 'Palavras_chaves': return ['id','palavra_chave'];
+                case 'Referencia': return ['id','referencia'];
+                case 'Artigo_autor': return ['id_artigo','id_autor'];
+                case 'Artigo_PalavraChave': return ['id_artigo','id_palavra_chave'];
+                case 'Artigo_referencia': return ['id_artigo','id_referencia'];
+                default: return [];
+            }
+        }
+
+        function generateInsertSQL(tableName, rows) {
+            if (!rows || rows.length === 0) return `-- sem dados para ${tableName}`;
+            const cols = Array.from(rows.reduce((s,r) => { Object.keys(r).forEach(k => s.add(k)); return s; }, new Set()));
+            const escapeVal = v => v === null ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`;
+            const values = rows.map(r => `(${cols.map(c => escapeVal(r[c] ?? null)).join(', ')})`).join(',\n');
+            return `INSERT INTO ${tableName} (${cols.join(', ')}) VALUES\n${values};`;
+        }
+    </script>
+
+    <!-- Article detail inline area (below table) -->
+    <section id="detailSection" class="mt-6 bg-white p-6 rounded-lg shadow-sm">
+        <h3 class="text-lg font-semibold text-gray-800">Detalhes do Artigo</h3>
+        <div id="detailView" class="mt-2 text-sm text-gray-700">
+            <p class="text-gray-500">Clique em um artigo na tabela para carregar os detalhes aqui.</p>
+        </div>
+    </section>
+
+    <script>
+        window.showArticleDetail = function(articleId) {
+            const found = (LAST_FETCH.Artigo || []).find(a => Number(a.id) === Number(articleId));
+            if (!found) {
+                document.getElementById('detailView').innerHTML = '<p class="text-red-500">Artigo não encontrado na última consulta. Atualize a tabela ou recarregue os artigos.</p>';
+                return;
+            }
+            const html = `
+                <div class="space-y-2">
+                    <h4 class="text-xl font-bold text-gray-800">${escapeHtml(found.titulo || '—')}</h4>
+                    <p class="text-sm text-gray-600">Ano: <strong>${found.ano ?? '—'}</strong> • Fonte: ${escapeHtml(found.source_title || '—')}</p>
+                    <p class="text-gray-700 mt-2">${escapeHtml(found.resumo || 'Sem resumo disponível.')}</p>
+                    <div class="mt-3 text-sm text-gray-700">
+                        <p><strong>DOI:</strong> ${escapeHtml(found.doi || '—')}</p>
+                        <p><strong>ISSN:</strong> ${escapeHtml(found.issn || '—')}</p>
+                        <p><strong>Linguagem:</strong> ${escapeHtml(found.linguagem || '—')}</p>
+                        <p><strong>Tipo de documento:</strong> ${escapeHtml(found.tipo_documento || '—')}</p>
+                        <p class="mt-2"><a href="${escapeHtml(found.link || '#')}" target="_blank" class="text-blue-600 hover:underline">Acessar link</a></p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('detailView').innerHTML = html;
+            document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
+        };
     </script>
 </body>
 </html>

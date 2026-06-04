@@ -3,16 +3,12 @@ import preprocess from 'svelte-preprocess';
 
 const config = {
   preprocess: preprocess({ postcss: true }),
-
   kit: {
     adapter: adapter({
-      fallback: '200.html'
+      fallback: '404.html'
     }),
-
     paths: {
-      base: process.env.NODE_ENV === 'production'
-        ? '/Artigos_Florestais'
-        : ''
+      base: process.argv.includes('dev') ? '' : process.env.BASE_PATH
     }
   }
 };

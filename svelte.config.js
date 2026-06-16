@@ -1,16 +1,16 @@
-import adapter from '@sveltejs/adapter-static';
-import preprocess from 'svelte-preprocess';
+import adapter from "@sveltejs/adapter-static";
+import preprocess from "svelte-preprocess";
 
 const config = {
   preprocess: preprocess({ postcss: true }),
   kit: {
     adapter: adapter({
-      fallback: '404.html'
+      fallback: "404.html",
     }),
     paths: {
-      base: process.argv.includes('dev') ? '' : process.env.BASE_PATH
-    }
-  }
+      base: process.argv.includes("dev") ? "" : process.env.BASE_PATH,
+    },
+  },
 };
 
 export default config;

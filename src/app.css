@@ -496,10 +496,9 @@ button {
 .article-head,
 .article-row {
   display: grid;
-  grid-template-columns: minmax(360px, 1.8fr) minmax(
-      150px,
-      0.8fr
-    ) 72px 96px 132px;
+  grid-template-columns:
+    minmax(360px, 1.8fr) minmax(150px, 0.8fr)
+    72px 96px 132px;
   align-items: center;
 }
 
@@ -1272,4 +1271,81 @@ button {
   .detail-meta-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   PREMIUM PORTFOLIO AESTHETICS (GLASSMORPHISM, TILT, GLOWS, ADVANCED LAYOUT)
+   ========================================================================== */
+
+/* Unified clean solid panels */
+.glass-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-panel);
+  transition: border-color 0.15s ease;
+}
+
+.dark .glass-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Clean hover card */
+.tilt-card {
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.tilt-card:hover {
+  border-color: var(--color-accent);
+}
+
+.glow-accent {
+  position: relative;
+}
+
+/* Custom Scrollbar override for sleek look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border2) 60%, transparent);
+  border: 1px solid transparent;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* Smooth background transitions for theme switches */
+body,
+.topbar,
+.workspace-main,
+.btn,
+.top-nav-item {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Layout upgrades - Solid Topbar */
+.topbar.glassbar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.dark .topbar.glassbar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }

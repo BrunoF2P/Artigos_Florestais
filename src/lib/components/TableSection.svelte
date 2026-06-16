@@ -6,7 +6,7 @@
     MessageCircle,
     ArrowRight,
     SearchX,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
 
   export let view: string = "artigos";
   export let rows: Record<string, unknown>[] = [];
@@ -56,24 +56,24 @@
 </script>
 
 {#if loading}
-  <div class="data-surface loading-state">
+  <div class="data-surface glass-panel loading-state">
     <div class="spinner"></div>
     <span>Carregando acervo...</span>
   </div>
 {:else if errorMessage}
-  <div class="data-surface empty-state danger">
+  <div class="data-surface glass-panel empty-state danger">
     <SearchX size={28} />
     <h3>Erro ao carregar dados</h3>
     <p>{errorMessage}</p>
   </div>
 {:else if rows.length === 0}
-  <div class="data-surface empty-state">
+  <div class="data-surface glass-panel empty-state">
     <SearchX size={30} />
     <h3>{emptyTitle}</h3>
     <p>{emptyDescription}</p>
   </div>
 {:else if view === "artigos"}
-  <div class="data-surface article-list">
+  <div class="data-surface glass-panel article-list">
     <div class="article-head">
       <span>Artigo</span>
       <span>Fonte</span>
@@ -131,7 +131,7 @@
     {/each}
   </div>
 {:else if view === "autores"}
-  <div class="data-surface compact-table">
+  <div class="data-surface glass-panel compact-table">
     <table>
       <thead>
         <tr>
@@ -169,7 +169,7 @@
     </table>
   </div>
 {:else if view === "palavras"}
-  <div class="data-surface compact-table">
+  <div class="data-surface glass-panel compact-table">
     <table>
       <thead>
         <tr>
@@ -209,7 +209,7 @@
     </table>
   </div>
 {:else if view === "referencias"}
-  <div class="data-surface reference-list">
+  <div class="data-surface glass-panel reference-list">
     {#each pagedRows as row, i (row.id ?? i)}
       <div class="reference-row">
         <span>{currentPage * PAGE_SIZE + i + 1}</span>
@@ -230,7 +230,7 @@
     {/each}
   </div>
 {:else}
-  <div class="data-surface compact-table">
+  <div class="data-surface glass-panel compact-table">
     <table>
       <thead>
         <tr>

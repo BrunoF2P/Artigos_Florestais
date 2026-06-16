@@ -1,12 +1,20 @@
 <script lang="ts">
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, createEventDispatcher } from "svelte";
   import {
     BarChart3,
     CalendarRange,
     MessageCircle,
     TrendingUp,
     ChartColumnBig,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
+  import KeywordCloud from "./KeywordCloud.svelte";
+
+  const dispatch = createEventDispatcher<{
+    filterYear: number;
+    filterJournal: string;
+    filterAuthor: { id: number; name: string };
+    filterKeyword: { id: number; name: string };
+  }>();
 
   type YearPoint = { year: number; value: number };
   type ChartSummary = {
@@ -19,6 +27,11 @@
 
   export let publicationSeries: YearPoint[] = [];
   export let citationSeries: YearPoint[] = [];
+  export let topJournalsSeries: { name: string; count: number }[] = [];
+  export let topAuthorsSeries: { id: number; name: string; count: number }[] = [];
+  
+  export let keywordNodes: { id: number; label: string; weight: number }[] = [];
+
   export let summary: ChartSummary = {
     years: 0,
     articles: 0,
@@ -32,24 +45,34 @@
 
   let publicationEl: HTMLDivElement | null = null;
   let citationEl: HTMLDivElement | null = null;
+  let journalsEl: HTMLDivElement | null = null;
+  let authorsEl: HTMLDivElement | null = null;
+
   let ApexChartsCtor: any = null;
   let mounted = false;
   let publicationChart: any = null;
   let citationChart: any = null;
+  let journalsChart: any = null;
+  let authorsChart: any = null;
 
   function destroyCharts() {
     try {
       publicationChart?.destroy?.();
-    } catch {
-      // ignore teardown errors from partially constructed charts
-    }
+    } catch {}
     try {
       citationChart?.destroy?.();
-    } catch {
-      // ignore teardown errors from partially constructed charts
-    }
+    } catch {}
+    try {
+      journalsChart?.destroy?.();
+    } catch {}
+    try {
+      authorsChart?.destroy?.();
+    } catch {}
+    
     publicationChart = null;
     citationChart = null;
+    journalsChart = null;
+    authorsChart = null;
   }
 
   function colorValue(name: string, fallback: string) {
@@ -63,16 +86,24 @@
 
   function baseOptions(
     categories: string[],
-    type: "bar",
+    type: "bar" | "line" | "area",
     title: string,
     subtitle: string,
     accent: string,
-  ) {
+    horizontal = false,
+  ): any {
     const text = colorValue("--color-text2", "#40514b");
     const muted = colorValue("--color-text3", "#6f8179");
     const grid = colorValue("--color-border", "#dce5e0");
-    const surface = colorValue("--color-surface", "#ffffff");
     const border = colorValue("--color-border2", "#c7d5cf");
+
+    // Standard number formatting helper
+    const numericFormatter = (value: number) => {
+      if (typeof value === "number") {
+        return Math.round(value).toLocaleString("pt-BR");
+      }
+      return value;
+    };
 
     return {
       chart: {
@@ -80,33 +111,44 @@
         toolbar: { show: false },
         fontFamily: "var(--font-sans)",
         foreColor: text,
-        background: surface,
-        animations: { easing: "easeinout", speed: 300 },
+        background: "transparent",
+        animations: { easing: "easeinout", speed: 250 },
       },
       theme: { mode: theme },
       colors: [accent],
       grid: { borderColor: grid, strokeDashArray: 4 },
       dataLabels: { enabled: false },
       legend: { show: false },
-      stroke: { curve: "straight", width: 1 },
-      fill: { opacity: 0.9 },
+      stroke: { curve: "smooth", width: 3 },
+      fill: { type: "solid", opacity: 1 },
       markers: {
         size: 0,
-        strokeColors: surface,
         strokeWidth: 2,
-        hover: { size: 6 },
+        hover: { size: 5 },
+      },
+      states: {
+        hover: {
+          filter: { type: "none" }, // Disable ApexCharts default washed-out hover filter
+        },
+        active: {
+          filter: { type: "none" },
+        },
       },
       xaxis: {
         categories,
-        labels: { style: { colors: muted } },
+        labels: {
+          style: { colors: muted },
+          // Apply number formatting to X axis ONLY if it's horizontal bar chart
+          formatter: horizontal ? numericFormatter : undefined,
+        },
         axisBorder: { color: border },
         axisTicks: { color: border },
       },
       yaxis: {
         labels: {
           style: { colors: muted },
-          formatter: (value: number) =>
-            Math.round(value).toLocaleString("pt-BR"),
+          // Apply number formatting to Y axis ONLY if it's vertical chart
+          formatter: horizontal ? undefined : numericFormatter,
         },
       },
       tooltip: {
@@ -117,16 +159,13 @@
       },
       title: {
         text: title,
-        style: { color: text, fontSize: "15px", fontWeight: 700 },
+        style: { color: text, fontSize: "14px", fontWeight: 700 },
       },
-      subtitle: { text: subtitle, style: { color: muted, fontSize: "12px" } },
+      subtitle: { text: subtitle, style: { color: muted, fontSize: "11px" } },
       plotOptions: {
         bar: {
-          borderRadius: 16,
-          borderRadiusApplication: "end",
-          borderRadiusWhenStacked: "last",
-          columnWidth: "36%",
-          distributed: false,
+          borderRadius: 0,
+          columnWidth: "50%",
         },
       },
     };
@@ -141,29 +180,42 @@
     if (
       !publicationEl ||
       !citationEl ||
+      !journalsEl ||
+      !authorsEl ||
       !publicationSeries.length ||
-      !citationSeries.length
+      !citationSeries.length ||
+      !topJournalsSeries.length ||
+      !topAuthorsSeries.length
     ) {
       return;
     }
 
-    const publicationCategories = publicationSeries.map((point) =>
-      String(point.year),
-    );
-    const citationCategories = citationSeries.map((point) =>
-      String(point.year),
-    );
+    const publicationCategories = publicationSeries.map((point) => String(point.year));
+    const citationCategories = citationSeries.map((point) => String(point.year));
     const accent = colorValue("--color-accent", "#0f766e");
     const accent2 = colorValue("--color-accent2", "#155e75");
+    const accent3 = colorValue("--color-green", "#2f855a");
+    const accent4 = colorValue("--color-indigo", "#4f46e5");
 
+    // 1. Publications Chart
+    const pubOpts = baseOptions(
+      publicationCategories,
+      "line",
+      "Publicações por ano",
+      "💡 Clique em um ano para listar os artigos",
+      accent,
+    );
+    pubOpts.chart.events = {
+      dataPointSelection: (event: any, chartContext: any, config: any) => {
+        const index = config.dataPointIndex;
+        const year = publicationSeries[index]?.year;
+        if (year) dispatch("filterYear", year);
+      }
+    };
     publicationChart = new ApexChartsCtor(publicationEl, {
-      ...baseOptions(
-        publicationCategories,
-        "bar",
-        "Publicações por ano",
-        "Volume de artigos publicados em cada ano",
-        accent,
-      ),
+      ...pubOpts,
+      stroke: { curve: "smooth", width: 3.5 },
+      markers: { size: 4, strokeWidth: 2 },
       series: [
         {
           name: "Publicações",
@@ -172,21 +224,102 @@
       ],
     });
 
+    // 2. Citations Chart
+    const citOpts = baseOptions(
+      citationCategories,
+      "bar",
+      "Citações por ano de publicação",
+      "💡 Clique em uma barra para filtrar os artigos",
+      accent2,
+    );
+    citOpts.chart.events = {
+      dataPointSelection: (event: any, chartContext: any, config: any) => {
+        const index = config.dataPointIndex;
+        const year = citationSeries[index]?.year;
+        if (year) dispatch("filterYear", year);
+      }
+    };
     citationChart = new ApexChartsCtor(citationEl, {
-      ...baseOptions(
-        citationCategories,
-        "bar",
-        "Citações por ano de publicação",
-        "Total de citações recebidas pelos artigos publicados em cada ano",
-        accent2,
-      ),
+      ...citOpts,
       series: [
         { name: "Citações", data: citationSeries.map((point) => point.value) },
       ],
     });
 
-    await publicationChart.render();
-    await citationChart.render();
+    // 3. Top Journals Chart
+    const jOpts = baseOptions(
+      topJournalsSeries.map((j) => j.name),
+      "bar",
+      "Top 10 Periódicos",
+      "💡 Clique em uma barra para filtrar pela revista",
+      accent3,
+      true, // horizontal
+    );
+    jOpts.chart.events = {
+      dataPointSelection: (event: any, chartContext: any, config: any) => {
+        const index = config.dataPointIndex;
+        const journal = topJournalsSeries[index]?.name;
+        if (journal) dispatch("filterJournal", journal);
+      }
+    };
+    journalsChart = new ApexChartsCtor(journalsEl, {
+      ...jOpts,
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          borderRadius: 0,
+          barHeight: "60%",
+        },
+      },
+      series: [
+        {
+          name: "Publicações",
+          data: topJournalsSeries.map((j) => j.count),
+        },
+      ],
+    });
+
+    // 4. Top Authors Chart
+    const aOpts = baseOptions(
+      topAuthorsSeries.map((a) => a.name),
+      "bar",
+      "Top 10 Autores",
+      "💡 Clique em uma barra para ver artigos do pesquisador",
+      accent4,
+      true, // horizontal
+    );
+    aOpts.chart.events = {
+      dataPointSelection: (event: any, chartContext: any, config: any) => {
+        const index = config.dataPointIndex;
+        const author = topAuthorsSeries[index];
+        if (author) {
+          dispatch("filterAuthor", { id: author.id, name: author.name });
+        }
+      }
+    };
+    authorsChart = new ApexChartsCtor(authorsEl, {
+      ...aOpts,
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          borderRadius: 0,
+          barHeight: "60%",
+        },
+      },
+      series: [
+        {
+          name: "Artigos",
+          data: topAuthorsSeries.map((a) => a.count),
+        },
+      ],
+    });
+
+    await Promise.all([
+      publicationChart.render(),
+      citationChart.render(),
+      journalsChart.render(),
+      authorsChart.render(),
+    ]);
   }
 
   onMount(() => {
@@ -206,62 +339,77 @@
 
   onDestroy(destroyCharts);
 
-  $: if (mounted && ApexChartsCtor) {
+  // Watch bound elements and data to render instantly as soon as loading ends
+  $: if (
+    mounted &&
+    ApexChartsCtor &&
+    publicationEl &&
+    citationEl &&
+    journalsEl &&
+    authorsEl &&
+    publicationSeries.length
+  ) {
     theme;
     publicationSeries;
     citationSeries;
+    topJournalsSeries;
+    topAuthorsSeries;
     void renderCharts();
+  }
+
+  function handleFilterKeyword(e: CustomEvent<{ id: number; name: string }>) {
+    dispatch("filterKeyword", e.detail);
   }
 </script>
 
 <div class="charts-surface">
   <div class="charts-summary">
-    <article class="summary-card">
+    <article class="summary-card glass-panel tilt-card">
       <BarChart3 size={18} />
       <div>
         <span>Publicações</span>
         <strong>{summary.articles.toLocaleString("pt-BR")}</strong>
       </div>
     </article>
-    <article class="summary-card">
+    <article class="summary-card glass-panel tilt-card">
       <CalendarRange size={18} />
       <div>
         <span>Anos cobertos</span>
         <strong>{summary.years.toLocaleString("pt-BR")}</strong>
       </div>
     </article>
-    <article class="summary-card">
+    <article class="summary-card glass-panel tilt-card">
       <MessageCircle size={18} />
       <div>
         <span>Citações</span>
         <strong>{summary.citations.toLocaleString("pt-BR")}</strong>
       </div>
     </article>
-    <article class="summary-card">
+    <article class="summary-card glass-panel tilt-card">
       <TrendingUp size={18} />
       <div>
         <span>Faixa de anos</span>
-        <strong
-          >{summary.minYear ?? "-"}
-          {summary.maxYear ? `• ${summary.maxYear}` : ""}</strong
-        >
+        <strong>
+          {summary.minYear ?? "-"}
+          {summary.maxYear ? ` • ${summary.maxYear}` : ""}
+        </strong>
       </div>
     </article>
   </div>
 
   {#if loading}
-    <div class="charts-state">
+    <div class="charts-state glass-panel">
       <div class="spinner"></div>
-      <p>Montando os gráficos da base...</p>
+      <p>Montando o dashboard analítico...</p>
     </div>
   {:else if errorMessage}
-    <div class="charts-state danger">
+    <div class="charts-state danger glass-panel">
       <ChartColumnBig size={28} />
       <h3>Erro ao gerar gráficos</h3>
       <p>{errorMessage}</p>
     </div>
   {:else if !publicationSeries.length || !citationSeries.length}
-    <div class="charts-state empty">
+    <div class="charts-state empty glass-panel">
       <ChartColumnBig size={28} />
       <h3>Sem dados suficientes</h3>
       <p>
@@ -270,41 +418,50 @@
     </div>
   {:else}
     <div class="charts-grid">
-      <article class="chart-card">
+      <article class="chart-card glass-panel tilt-card">
         <div class="chart-frame" bind:this={publicationEl}></div>
       </article>
-      <article class="chart-card">
+      <article class="chart-card glass-panel tilt-card">
         <div class="chart-frame" bind:this={citationEl}></div>
       </article>
+      <article class="chart-card glass-panel tilt-card">
+        <div class="chart-frame" bind:this={journalsEl}></div>
+      </article>
+      <article class="chart-card glass-panel tilt-card">
+        <div class="chart-frame" bind:this={authorsEl}></div>
+      </article>
     </div>
+
+    {#if keywordNodes && keywordNodes.length}
+      <KeywordCloud 
+        nodes={keywordNodes} 
+        {theme}
+        on:filterKeyword={handleFilterKeyword}
+      />
+    {/if}
   {/if}
 </div>
 
 <style>
   .charts-surface {
     display: grid;
-    gap: 18px;
+    gap: 20px;
   }
+
+
 
   .charts-summary {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: 16px;
   }
 
   .summary-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border: 1px solid var(--color-border);
-    border-radius: 16px;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-surface) 94%, transparent),
-      var(--color-surface)
-    );
-    box-shadow: var(--shadow-panel);
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 20px;
   }
 
   .summary-card :global(svg) {
@@ -315,32 +472,30 @@
   .summary-card span {
     display: block;
     color: var(--color-text3);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
   }
 
   .summary-card strong {
     display: block;
-    margin-top: 2px;
+    margin-top: 3px;
     color: var(--color-text);
-    font-size: 1.05rem;
+    font-size: 1.15rem;
+    font-weight: 780;
   }
 
   .charts-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .chart-card {
     min-height: 420px;
-    padding: 16px 16px 6px;
-    border: 1px solid var(--color-border);
-    border-radius: 18px;
-    background: var(--color-surface);
-    box-shadow: var(--shadow-panel);
+    padding: 20px 20px 8px;
+    border-radius: 24px;
   }
 
   .chart-frame {
@@ -351,12 +506,10 @@
   .charts-state {
     display: grid;
     place-items: center;
-    gap: 10px;
-    min-height: 280px;
-    padding: 24px;
-    border: 1px dashed var(--color-border2);
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    gap: 12px;
+    min-height: 320px;
+    padding: 32px;
+    border-radius: 24px;
     color: var(--color-text2);
     text-align: center;
   }
@@ -383,6 +536,8 @@
       grid-template-columns: 1fr;
     }
   }
+
+
 
   @media (max-width: 640px) {
     .charts-summary {

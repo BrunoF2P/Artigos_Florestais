@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Upload, X, FileText, CheckCircle2, AlertCircle } from 'lucide-svelte';
+  import { Upload, X, FileText, CheckCircle2, AlertCircle } from '@lucide/svelte';
   import Button from '$lib/components/Button.svelte';
 
   export let isOpen = false;
@@ -46,9 +46,12 @@
   }
 </script>
 
+<svelte:window onkeydown={(e) => e.key === 'Escape' && isOpen && dispatch('close')} />
+
 {#if isOpen}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={() => dispatch('close')} onkeydown={(e) => e.key === 'Escape' && dispatch('close')}>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="modal-backdrop" onclick={() => dispatch('close')}>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="upload-dialog" onclick={(e) => e.stopPropagation()}>
       <div class="upload-header">

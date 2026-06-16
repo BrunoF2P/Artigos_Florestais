@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { X, ExternalLink, FileText, Calendar, MessageCircle, Languages, Hash, Unlock, Fingerprint, Database } from 'lucide-svelte';
+  import { X, ExternalLink, FileText, Calendar, MessageCircle, Languages, Hash, Unlock, Fingerprint, Database } from '@lucide/svelte';
   import Button from '$lib/components/Button.svelte';
 
   export let article: Record<string, unknown> | null = null;
@@ -15,9 +15,12 @@
   }
 </script>
 
+<svelte:window onkeydown={(e) => e.key === 'Escape' && article && dispatch('close')} />
+
 {#if article}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop detail-backdrop" onclick={() => dispatch('close')} onkeydown={(e) => e.key === 'Escape' && dispatch('close')}>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="modal-backdrop detail-backdrop" onclick={() => dispatch('close')}>
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="detail-modal" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()}>

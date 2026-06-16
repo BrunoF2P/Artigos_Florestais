@@ -69,26 +69,26 @@ npm run check
 
 O importador aceita CSVs combinados exportados do Scopus. Os nomes abaixo sao os principais campos reconhecidos:
 
-| Campo do CSV | Destino | Observacao |
-| --- | --- | --- |
-| `Scopus ID` ou `EID` | `artigo.scopus_id` | Usado para deduplicar artigos. |
-| `Title` | `artigo.titulo` | Campo obrigatorio para identificar o artigo. |
-| `Year` | `artigo.ano` | Validado no banco pelo intervalo permitido. |
-| `Source title` ou `Source` | `artigo.source_title`, `artigo.source` | Revista, evento ou origem. |
-| `Cited by` | `artigo.cited_by` | Numero de citacoes. |
-| `DOI` ou `Doi` | `artigo.doi` | Normalizado em `doi_normalizado`. |
-| `Link` ou `URL` | `artigo.link` | Link externo para publicacao. |
-| `Abstract` | `artigo.resumo` | Texto usado tambem no vetor de busca. |
-| `ISSN`, `ISBN`, `CODEN` | `artigo` | Identificadores bibliograficos. |
-| `Language of Original Document` ou `Language` | `artigo.linguagem` | Idioma do documento. |
-| `Document Type` | `artigo.document_type` | Tipo do documento. |
-| `Author(s) ID` | `autor.id` e `artigo_autor` | IDs do Scopus separados por `;`, `|` ou `,`. |
-| `Author full names` | `autor.nome_completo` | Usado para preencher nomes completos quando disponivel. |
-| `Authors` | `autor.nome` | Fallback para autores. |
-| `Author Keywords` | `palavra_chave` tipo `author` | Termos separados por `;` ou `|`. |
-| `Index Keywords` | `palavra_chave` tipo `index` | Termos de indexacao. |
-| `References` | `referencia` e `artigo_referencia` | Referencias brutas; o importer tenta extrair `titulo`, `ano` e `doi`. |
-| `Open Access` | `open_access_tipo` e `artigo_open_access` | Tipos como `All Open Access`, `Gold Open Access`, `Green Open Access`, `Hybrid Gold Open Access` e `Bronze Open Access`. |
+| Campo do CSV                                  | Destino                                   | Observacao                                                                                                               |
+| --------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `Scopus ID` ou `EID`                          | `artigo.scopus_id`                        | Usado para deduplicar artigos.                                                                                           |
+| `Title`                                       | `artigo.titulo`                           | Campo obrigatorio para identificar o artigo.                                                                             |
+| `Year`                                        | `artigo.ano`                              | Validado no banco pelo intervalo permitido.                                                                              |
+| `Source title` ou `Source`                    | `artigo.source_title`, `artigo.source`    | Revista, evento ou origem.                                                                                               |
+| `Cited by`                                    | `artigo.cited_by`                         | Numero de citacoes.                                                                                                      |
+| `DOI` ou `Doi`                                | `artigo.doi`                              | Normalizado em `doi_normalizado`.                                                                                        |
+| `Link` ou `URL`                               | `artigo.link`                             | Link externo para publicacao.                                                                                            |
+| `Abstract`                                    | `artigo.resumo`                           | Texto usado tambem no vetor de busca.                                                                                    |
+| `ISSN`, `ISBN`, `CODEN`                       | `artigo`                                  | Identificadores bibliograficos.                                                                                          |
+| `Language of Original Document` ou `Language` | `artigo.linguagem`                        | Idioma do documento.                                                                                                     |
+| `Document Type`                               | `artigo.document_type`                    | Tipo do documento.                                                                                                       |
+| `Author(s) ID`                                | `autor.id` e `artigo_autor`               | IDs do Scopus separados por `;`, `                                                                                       | `ou`,`. |
+| `Author full names`                           | `autor.nome_completo`                     | Usado para preencher nomes completos quando disponivel.                                                                  |
+| `Authors`                                     | `autor.nome`                              | Fallback para autores.                                                                                                   |
+| `Author Keywords`                             | `palavra_chave` tipo `author`             | Termos separados por `;` ou `                                                                                            | `.      |
+| `Index Keywords`                              | `palavra_chave` tipo `index`              | Termos de indexacao.                                                                                                     |
+| `References`                                  | `referencia` e `artigo_referencia`        | Referencias brutas; o importer tenta extrair `titulo`, `ano` e `doi`.                                                    |
+| `Open Access`                                 | `open_access_tipo` e `artigo_open_access` | Tipos como `All Open Access`, `Gold Open Access`, `Green Open Access`, `Hybrid Gold Open Access` e `Bronze Open Access`. |
 
 ## Modelo De Dados
 
@@ -169,9 +169,9 @@ process_staging_data.sql Nota de compatibilidade da RPC
 
 ## Variaveis De Ambiente
 
-| Variavel | Descricao |
-| --- | --- |
-| `VITE_SUPABASE_URL` | URL do projeto Supabase. |
+| Variavel            | Descricao                                           |
+| ------------------- | --------------------------------------------------- |
+| `VITE_SUPABASE_URL` | URL do projeto Supabase.                            |
 | `VITE_SUPABASE_KEY` | Chave publica publishable/anon usada pelo frontend. |
 
 ## Deploy

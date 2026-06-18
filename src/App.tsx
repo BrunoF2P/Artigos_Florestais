@@ -170,38 +170,42 @@ export default function App() {
 
       {hasData && (
         <nav className="nav-tabs" role="tablist">
-          {TABS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={currentTab === id}
-              className={`tab-btn ${currentTab === id ? 'active' : ''}`}
-              onClick={() => setCurrentTab(id)}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
+          <div className="nav-tabs-content">
+            {TABS.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={currentTab === id}
+                className={`tab-btn ${currentTab === id ? 'active' : ''}`}
+                onClick={() => setCurrentTab(id)}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
         </nav>
       )}
 
       {hasData && <FilterBanner />}
 
       <main className="main-content">
-        {!hasData ? (
-          <EmptyDropzone onFile={handleFile} />
-        ) : (
-          <>
-            <KpiGrid />
-            {currentTab === 'dashboard'      && <DashboardTab />}
-            {currentTab === 'articles'       && <ArticlesTab />}
-            {currentTab === 'authors'        && <AuthorsTab />}
-            {currentTab === 'keywords'       && <KeywordsTab />}
-            {currentTab === 'references'     && <ReferencesTab />}
-            {currentTab === 'open-access'    && <OpenAccessTab />}
-            {currentTab === 'data-treatment' && <DataQualityTab />}
-          </>
-        )}
+        <div className="main-content-inner">
+          {!hasData ? (
+            <EmptyDropzone onFile={handleFile} />
+          ) : (
+            <>
+              <KpiGrid />
+              {currentTab === 'dashboard'      && <DashboardTab />}
+              {currentTab === 'articles'       && <ArticlesTab />}
+              {currentTab === 'authors'        && <AuthorsTab />}
+              {currentTab === 'keywords'       && <KeywordsTab />}
+              {currentTab === 'references'     && <ReferencesTab />}
+              {currentTab === 'open-access'    && <OpenAccessTab />}
+              {currentTab === 'data-treatment' && <DataQualityTab />}
+            </>
+          )}
+        </div>
       </main>
 
       <SupabasePanel isOpen={supabaseOpen} onClose={() => setSupabaseOpen(false)} />

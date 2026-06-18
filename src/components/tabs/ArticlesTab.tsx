@@ -13,16 +13,16 @@ function truncate(s: string, n: number) {
 
 export const ArticlesTab: React.FC = () => {
   const articles = useAppStore(s => s.articles);
-  const activeFilter = useAppStore(s => s.activeFilter);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const activeFilters = useAppStore(s => s.activeFilters);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Article | null>(null);
 
   const filtered = useMemo(
-    () => getFilteredArticles(articles, activeFilter, search),
-    [articles, activeFilter, search],
+    () => getFilteredArticles(articles, activeFilters, search),
+    [articles, activeFilters, search],
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -125,7 +125,7 @@ export const ArticlesTab: React.FC = () => {
                     {art.authors.slice(0, 3).map((a, i) => (
                       <button
                         key={a.id || i}
-                        onClick={e => { e.stopPropagation(); setActiveFilter('author', a.name, a.name); }}
+                        onClick={e => { e.stopPropagation(); toggleFilter({ type: 'author', value: a.name, label: a.name }); }}
                         className="badge badge-primary"
                         style={{ cursor: 'pointer', border: 'none' }}
                       >
@@ -144,7 +144,7 @@ export const ArticlesTab: React.FC = () => {
                     {art.keywords.slice(0, 3).map((k, i) => (
                       <button
                         key={i}
-                        onClick={e => { e.stopPropagation(); setActiveFilter('keyword', k.normalized, k.text); }}
+                        onClick={e => { e.stopPropagation(); toggleFilter({ type: 'keyword', value: k.normalized, label: k.text }); }}
                         className="badge badge-emerald"
                         style={{ cursor: 'pointer', border: 'none' }}
                       >

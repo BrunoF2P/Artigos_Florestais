@@ -27,7 +27,7 @@ export function splitKeywords(kwStr: string): string[] {
   return kwStr.split(/;|,\s(?=[A-Z])/).map(k => k.trim()).filter(Boolean);
 }
 
-export function splitReferencesHeuristic(refsStr: string) {
+export function splitReferencesHeuristic(refsStr: string): { bruta: string; title: string; year: number | null; doi: string | null }[] {
   if (!refsStr) return [];
   
   let splitParts: string[] = [];
@@ -59,7 +59,7 @@ export function splitReferencesHeuristic(refsStr: string) {
     }
     
     return { bruta, title, year, doi };
-  }).filter(Boolean);
+  }).filter((r): r is { bruta: string; title: string; year: number | null; doi: string | null } => r !== null);
 }
 
 export function parseAuthors(authorsStr: string, idsStr: string, fullNamesStr: string) {
@@ -166,7 +166,7 @@ export function parseCSVFile(
         if (Array.isArray(rawRows) && rawRows.length > 0 && Array.isArray(rawRows[0])) {
           const header = (rawRows[0] as string[]).map(h => h.trim());
           const dataRows = rawRows.slice(1);
-          rowsObjects = dataRows.map(row => {
+          rowsObjects = dataRows.map((row: any) => {
             const obj: any = {};
             header.forEach((h, idx) => {
               obj[h] = row[idx] || '';

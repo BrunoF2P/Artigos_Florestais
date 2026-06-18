@@ -10,7 +10,7 @@ function truncate(s: string, n: number) {
 
 export const AuthorsTab: React.FC = () => {
   const authors = useAppStore(s => s.authors);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(authors.length / PAGE_SIZE));
@@ -27,8 +27,8 @@ export const AuthorsTab: React.FC = () => {
   }, [totalPages, page]);
 
   const handleFilterByAuthor = useCallback((name: string) => {
-    setActiveFilter('author', name, name);
-  }, [setActiveFilter]);
+    toggleFilter({ type: 'author', value: name, label: name });
+  }, [toggleFilter]);
 
   return (
     <div>

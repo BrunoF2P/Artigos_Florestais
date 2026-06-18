@@ -15,10 +15,10 @@ interface WordCloudProps {
 
 export const WordCloud: React.FC<WordCloudProps> = ({ onFilter }) => {
   const articles = useAppStore(s => s.articles);
-  const activeFilter = useAppStore(s => s.activeFilter);
+  const activeFilters = useAppStore(s => s.activeFilters);
 
   const words = useMemo(() => {
-    const filtered: Article[] = getFilteredArticles(articles, activeFilter);
+    const filtered: Article[] = getFilteredArticles(articles, activeFilters);
     const kwMap = new Map<string, { text: string; normalized: string; count: number }>();
     filtered.forEach(art => {
       art.keywords.forEach(k => {
@@ -31,7 +31,7 @@ export const WordCloud: React.FC<WordCloudProps> = ({ onFilter }) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 45)
       .sort(() => Math.random() - 0.5);
-  }, [articles, activeFilter]);
+  }, [articles, activeFilters]);
 
   const counts = words.map(w => w.count);
   const maxC = Math.max(...counts, 1);
@@ -55,6 +55,7 @@ export const WordCloud: React.FC<WordCloudProps> = ({ onFilter }) => {
         const fontSize = 11 + Math.round(pct * 25);
         const color = KW_COLORS[idx % KW_COLORS.length];
         const opacity = 0.65 + pct * 0.35;
+        const isActive = activeFilters.some(f => f.type === 'keyword' && f.value === w.normalized);
 
         return (
           <span
@@ -68,7 +69,9 @@ export const WordCloud: React.FC<WordCloudProps> = ({ onFilter }) => {
               cursor: 'pointer',
               padding: '0.2rem 0.45rem',
               borderRadius: '0.375rem',
-              opacity,
+              border: isActive ? `1px solid ${color}` : '1px solid transparent',
+              backgroundColor: isActive ? 'oklch(60% 0.22 265 / 0.15)' : 'transparent',
+              opacity: isActive ? 1 : opacity,
               display: 'inline-block',
               transition: 'all 0.18s ease',
               userSelect: 'none',
@@ -77,13 +80,13 @@ export const WordCloud: React.FC<WordCloudProps> = ({ onFilter }) => {
               const el = e.currentTarget;
               el.style.transform = 'scale(1.12)';
               el.style.opacity = '1';
-              el.style.backgroundColor = 'oklch(60% 0.22 265 / 0.1)';
+              if (!isActive) el.style.backgroundColor = 'oklch(60% 0.22 265 / 0.1)';
             }}
             onMouseLeave={e => {
               const el = e.currentTarget;
               el.style.transform = 'scale(1)';
-              el.style.opacity = String(opacity);
-              el.style.backgroundColor = 'transparent';
+              el.style.opacity = String(isActive ? 1 : opacity);
+              el.style.backgroundColor = isActive ? 'oklch(60% 0.22 265 / 0.15)' : 'transparent';
             }}
           >
             {w.text} ({w.count})

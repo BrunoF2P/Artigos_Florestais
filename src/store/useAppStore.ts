@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Article, Author, Keyword, Reference, OpenAccessMetric, ConceptualGroup } from '../types';
+import { Article, Author, Keyword, Reference, OpenAccessMetric, ConceptualGroup, ActiveFilter } from '../types';
 
 interface PaginationState {
   page: number;
@@ -13,21 +13,18 @@ interface AppState {
   references: Reference[];
   openAccess: OpenAccessMetric[];
   conceptualGroups: ConceptualGroup[];
-  
-  activeFilter: {
-    type: 'author' | 'keyword' | 'reference' | 'open_access' | 'conceptual_group' | null;
-    value: string | null;
-    label: string | null;
-  };
-  
+
+  /** Composite filter — array of facets applied with AND logic between types, OR within same type */
+  activeFilters: ActiveFilter[];
+
   currentTab: string;
-  
+
   loading: {
     active: boolean;
     message: string;
     submessage: string;
   };
-  
+
   pagination: {
     articles: PaginationState;
     authors: PaginationState;
@@ -35,22 +32,24 @@ interface AppState {
     references: PaginationState;
     openAccess: PaginationState;
   };
-  
+
   supabaseConfig: {
     url: string;
     key: string;
   };
-  
+
   setLoading: (active: boolean, message?: string, submessage?: string) => void;
   setArticles: (articles: Article[]) => void;
   rebuildState: (articles: Article[]) => void;
   resetState: () => void;
-  setActiveFilter: (
-    type: 'author' | 'keyword' | 'reference' | 'open_access' | 'conceptual_group' | null,
-    value: string | null,
-    label: string | null
-  ) => void;
-  clearFilter: () => void;
+
+  /** Toggle a single filter facet on/off */
+  toggleFilter: (f: ActiveFilter) => void;
+  /** Remove a specific facet */
+  removeFilter: (type: ActiveFilter['type'], value: string) => void;
+  /** Clear all active filters */
+  clearFilters: () => void;
+
   setCurrentTab: (tab: string) => void;
   setPaginationPage: (tab: keyof AppState['pagination'], page: number) => void;
   setSupabaseConfig: (url: string, key: string) => void;
@@ -98,6 +97,14 @@ function calculateConceptualGroups(keywords: Keyword[]): ConceptualGroup[] {
     .sort((a, b) => b.articlesCount - a.articlesCount);
 }
 
+const resetPagination = {
+  articles: { page: 1, limit: 15 },
+  authors: { page: 1, limit: 15 },
+  keywords: { page: 1, limit: 15 },
+  references: { page: 1, limit: 15 },
+  openAccess: { page: 1, limit: 15 },
+};
+
 export const useAppStore = create<AppState>((set) => ({
   articles: [],
   authors: [],
@@ -105,41 +112,31 @@ export const useAppStore = create<AppState>((set) => ({
   references: [],
   openAccess: [],
   conceptualGroups: [],
-  
-  activeFilter: {
-    type: null,
-    value: null,
-    label: null
-  },
-  
+
+  activeFilters: [],
+
   currentTab: 'dashboard',
-  
+
   loading: {
     active: false,
     message: '',
     submessage: ''
   },
-  
-  pagination: {
-    articles: { page: 1, limit: 15 },
-    authors: { page: 1, limit: 15 },
-    keywords: { page: 1, limit: 15 },
-    references: { page: 1, limit: 15 },
-    openAccess: { page: 1, limit: 15 }
-  },
-  
+
+  pagination: { ...resetPagination },
+
   supabaseConfig: {
     url: localStorage.getItem('sbm_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '',
     key: localStorage.getItem('sbm_supabase_key') || import.meta.env.VITE_SUPABASE_KEY || ''
   },
-  
+
   setLoading: (active, message = 'Carregando...', submessage = '') =>
-    set((state) => ({
+    set(() => ({
       loading: { active, message, submessage }
     })),
-    
+
   setArticles: (articles) => set({ articles }),
-  
+
   rebuildState: (rawArticles) => {
     // 1. Deduplicate articles by EID
     const seenEids = new Set<string>();
@@ -263,16 +260,11 @@ export const useAppStore = create<AppState>((set) => ({
       references: finalReferences,
       openAccess: finalOpenAccess,
       conceptualGroups: finalConceptualGroups,
-      pagination: {
-        articles: { page: 1, limit: 15 },
-        authors: { page: 1, limit: 15 },
-        keywords: { page: 1, limit: 15 },
-        references: { page: 1, limit: 15 },
-        openAccess: { page: 1, limit: 15 }
-      }
+      activeFilters: [],
+      pagination: { ...resetPagination }
     });
   },
-  
+
   resetState: () => set({
     articles: [],
     authors: [],
@@ -280,26 +272,31 @@ export const useAppStore = create<AppState>((set) => ({
     references: [],
     openAccess: [],
     conceptualGroups: [],
-    activeFilter: { type: null, value: null, label: null }
+    activeFilters: [],
   }),
-  
-  setActiveFilter: (type, value, label) => set({
-    activeFilter: { type, value, label },
-    pagination: {
-      articles: { page: 1, limit: 15 },
-      authors: { page: 1, limit: 15 },
-      keywords: { page: 1, limit: 15 },
-      references: { page: 1, limit: 15 },
-      openAccess: { page: 1, limit: 15 }
-    }
+
+  toggleFilter: (f) => set((state) => {
+    const exists = state.activeFilters.some(
+      af => af.type === f.type && af.value === f.value
+    );
+    const next = exists
+      ? state.activeFilters.filter(af => !(af.type === f.type && af.value === f.value))
+      : [...state.activeFilters, f];
+    return { activeFilters: next, pagination: { ...resetPagination } };
   }),
-  
-  clearFilter: () => set({
-    activeFilter: { type: null, value: null, label: null }
+
+  removeFilter: (type, value) => set((state) => ({
+    activeFilters: state.activeFilters.filter(af => !(af.type === type && af.value === value)),
+    pagination: { ...resetPagination }
+  })),
+
+  clearFilters: () => set({
+    activeFilters: [],
+    pagination: { ...resetPagination }
   }),
-  
+
   setCurrentTab: (currentTab) => set({ currentTab }),
-  
+
   setPaginationPage: (tab, page) => set((state) => ({
     pagination: {
       ...state.pagination,
@@ -309,7 +306,7 @@ export const useAppStore = create<AppState>((set) => ({
       }
     }
   })),
-  
+
   setSupabaseConfig: (url, key) => {
     localStorage.setItem('sbm_supabase_url', url);
     localStorage.setItem('sbm_supabase_key', key);

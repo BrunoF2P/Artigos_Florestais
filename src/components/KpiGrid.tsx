@@ -12,11 +12,11 @@ import {
 
 export const KpiGrid: React.FC = () => {
   const articles = useAppStore((state) => state.articles);
-  const activeFilter = useAppStore((state) => state.activeFilter);
+  const activeFilters = useAppStore((state) => state.activeFilters);
   const setCurrentTab = useAppStore((state) => state.setCurrentTab);
 
   const stats = useMemo(() => {
-    const activeList = getFilteredArticles(articles, activeFilter);
+    const activeList = getFilteredArticles(articles, activeFilters);
     
     let minYear = Infinity;
     let maxYear = -Infinity;
@@ -49,7 +49,7 @@ export const KpiGrid: React.FC = () => {
       citationsCount: totalCites,
       yearsRange
     };
-  }, [articles, activeFilter]);
+  }, [articles, activeFilters]);
 
   if (articles.length === 0) {
     return null;

@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 
 export const OpenAccessTab: React.FC = () => {
   const openAccess = useAppStore(s => s.openAccess);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
 
   const total = useMemo(() => openAccess.reduce((acc, oa) => acc + oa.articlesCount, 0), [openAccess]);
 
@@ -26,7 +26,7 @@ export const OpenAccessTab: React.FC = () => {
           return (
             <div
               key={oa.name}
-              onClick={() => setActiveFilter('open_access', oa.name, oa.name)}
+              onClick={() => toggleFilter({ type: 'open_access', value: oa.name, label: oa.name })}
               style={{
                 background: palette.bg,
                 border: `1px solid ${palette.border}`,
@@ -72,7 +72,7 @@ export const OpenAccessTab: React.FC = () => {
               return (
                 <tr
                   key={oa.name}
-                  onClick={() => setActiveFilter('open_access', oa.name, oa.name)}
+                  onClick={() => toggleFilter({ type: 'open_access', value: oa.name, label: oa.name })}
                   style={{ cursor: 'pointer' }}
                 >
                   <td className="text-center">

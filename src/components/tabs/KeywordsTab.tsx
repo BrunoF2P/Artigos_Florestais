@@ -7,7 +7,7 @@ function truncate(s: string, n: number) { return s && s.length > n ? s.slice(0, 
 
 export const KeywordsTab: React.FC = () => {
   const keywords = useAppStore(s => s.keywords);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(keywords.length / PAGE_SIZE));
@@ -46,7 +46,7 @@ export const KeywordsTab: React.FC = () => {
             {pageItems.map((kw, idx) => (
               <tr
                 key={`${kw.normalized}-${kw.type}-${idx}`}
-                onClick={() => setActiveFilter('keyword', kw.normalized, kw.text)}
+                onClick={() => toggleFilter({ type: 'keyword', value: kw.normalized, label: kw.text })}
                 style={{ cursor: 'pointer' }}
               >
                 <td className="text-center">

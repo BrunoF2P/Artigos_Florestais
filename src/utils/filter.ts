@@ -1,41 +1,82 @@
-import { Article } from '../types';
+import { Article, ActiveFilter } from '../types';
 
+/**
+ * Applies composite filters with:
+ *  - OR logic between filters of the SAME type  (e.g. two keywords → union)
+ *  - AND logic between different types           (e.g. keyword AND author → intersection)
+ */
 export function getFilteredArticles(
   articles: Article[],
-  activeFilter: { type: string | null; value: string | null } | null,
+  activeFilters: ActiveFilter[],
   searchText?: string
 ): Article[] {
   let list = articles;
 
-  if (activeFilter && activeFilter.type && activeFilter.value) {
-    const { type, value } = activeFilter;
-    if (type === 'author') {
-      list = list.filter(art => art.authors.some(a => a.id === value || a.name === value));
-    } else if (type === 'keyword') {
-      list = list.filter(art => art.keywords.some(k => k.text === value || k.normalized === value));
-    } else if (type === 'open_access') {
-      list = list.filter(art => art.openAccess.includes(value));
-    } else if (type === 'reference') {
-      list = list.filter(art => art.references.some(r => r.bruta === value));
-    } else if (type === 'conceptual_group') {
-      list = list.filter(art => art.keywords.some(k => k.normalized === value));
-    } else if (type === 'year') {
-      list = list.filter(art => String(art.year) === String(value));
-    } else if (type === 'journal') {
-      list = list.filter(art => art.source === value);
-    } else if (type === 'language') {
-      list = list.filter(art => art.language === value);
+  if (activeFilters.length > 0) {
+    // Group filters by type
+    const byType = new Map<string, ActiveFilter[]>();
+    for (const f of activeFilters) {
+      if (!byType.has(f.type)) byType.set(f.type, []);
+      byType.get(f.type)!.push(f);
+    }
+
+    // For each type group, article must match at least ONE value (OR within type)
+    // Then result is the AND of all type groups
+    for (const [type, filters] of byType.entries()) {
+      const values = filters.map(f => f.value);
+      switch (type) {
+        case 'author':
+          list = list.filter(art =>
+            art.authors.some(a => values.includes(a.id ?? a.name) || values.includes(a.name))
+          );
+          break;
+        case 'keyword':
+          list = list.filter(art =>
+            art.keywords.some(k => values.includes(k.normalized) || values.includes(k.text))
+          );
+          break;
+        case 'conceptual_group':
+          list = list.filter(art =>
+            art.keywords.some(k => values.includes(k.normalized))
+          );
+          break;
+        case 'open_access':
+          list = list.filter(art =>
+            art.openAccess.some(oa => values.includes(oa))
+          );
+          break;
+        case 'reference':
+          list = list.filter(art =>
+            art.references.some(r => values.includes(r.bruta))
+          );
+          break;
+        case 'year':
+          list = list.filter(art =>
+            values.includes(String(art.year))
+          );
+          break;
+        case 'journal':
+          list = list.filter(art =>
+            values.includes(art.source)
+          );
+          break;
+        case 'language':
+          list = list.filter(art =>
+            values.includes(art.language)
+          );
+          break;
+      }
     }
   }
 
   if (searchText) {
-    const cleanSearch = searchText.toLowerCase();
-    list = list.filter(art => 
-      art.title.toLowerCase().includes(cleanSearch) ||
-      art.source.toLowerCase().includes(cleanSearch) ||
-      art.abstract.toLowerCase().includes(cleanSearch) ||
-      art.doi.toLowerCase().includes(cleanSearch) ||
-      art.authors.some(a => a.name.toLowerCase().includes(cleanSearch))
+    const q = searchText.toLowerCase();
+    list = list.filter(art =>
+      art.title.toLowerCase().includes(q) ||
+      art.source.toLowerCase().includes(q) ||
+      art.abstract.toLowerCase().includes(q) ||
+      art.doi.toLowerCase().includes(q) ||
+      art.authors.some(a => a.name.toLowerCase().includes(q))
     );
   }
 

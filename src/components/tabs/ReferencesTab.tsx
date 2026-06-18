@@ -7,7 +7,7 @@ function truncate(s: string, n: number) { return s && s.length > n ? s.slice(0, 
 
 export const ReferencesTab: React.FC = () => {
   const references = useAppStore(s => s.references);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(references.length / PAGE_SIZE));
@@ -41,7 +41,7 @@ export const ReferencesTab: React.FC = () => {
             {pageItems.map((ref, idx) => (
               <tr
                 key={ref.bruta}
-                onClick={() => setActiveFilter('reference', ref.bruta, truncate(ref.bruta, 60))}
+                onClick={() => toggleFilter({ type: 'reference', value: ref.bruta, label: truncate(ref.bruta, 60) })}
                 style={{ cursor: 'pointer' }}
               >
                 <td className="text-center">

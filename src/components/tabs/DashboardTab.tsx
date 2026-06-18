@@ -39,16 +39,16 @@ function commonOpts(text: string, grid: string, xLabel: string, yLabel: string, 
 interface UseChartProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   getData: () => { labels: any[]; data: any[]; extra?: any };
-  chartType: string;
+  chartType: any;
   colorKey: 'primary' | 'accent' | string;
   options?: (colors: ReturnType<typeof getChartColors>) => any;
   onClickBar?: (idx: number, labels: any[]) => void;
   articles: any[];
-  activeFilter: any;
+  activeFilters: any[];
 }
 
 function useBarChart({
-  canvasRef, getData, chartType, colorKey, options, onClickBar, articles, activeFilter,
+  canvasRef, getData, chartType, colorKey, options, onClickBar, articles, activeFilters,
 }: UseChartProps) {
   const chartRef = useRef<any>(null);
 
@@ -65,7 +65,7 @@ function useBarChart({
     const bgColor = (colorKey === 'primary' ? colors.primary : colorKey === 'accent' ? colors.accent : colorKey);
 
     chartRef.current = new Chart(ctx, {
-      type: chartType,
+      type: chartType as any,
       data: {
         labels,
         datasets: [{
@@ -89,7 +89,7 @@ function useBarChart({
     });
 
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [articles, activeFilter]);
+  }, [articles, activeFilters]);
 }
 
 /* ─── Donut/Pie chart hook ────────────────────────────────── */
@@ -128,16 +128,16 @@ function usePieChart(
 export const DashboardTab: React.FC = () => {
   const articles = useAppStore(s => s.articles);
   const conceptualGroups = useAppStore(s => s.conceptualGroups);
-  const activeFilter = useAppStore(s => s.activeFilter);
-  const setActiveFilter = useAppStore(s => s.setActiveFilter);
+  const activeFilters = useAppStore(s => s.activeFilters);
+  const toggleFilter = useAppStore(s => s.toggleFilter);
 
   const [networkType, setNetworkType] = useState<NetworkType>('keywords');
 
-  const filtered = useMemo(() => getFilteredArticles(articles, activeFilter), [articles, activeFilter]);
+  const filtered = useMemo(() => getFilteredArticles(articles, activeFilters), [articles, activeFilters]);
 
   const handleFilter = useCallback((type: any, value: string, label: string) => {
-    setActiveFilter(type, value, label);
-  }, [setActiveFilter]);
+    toggleFilter({ type, value, label });
+  }, [toggleFilter]);
 
   /* ── CHART 1: Pubs per year ──────────────────────────────── */
   const yearCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -155,7 +155,7 @@ export const DashboardTab: React.FC = () => {
     colorKey: 'primary',
     options: (c) => commonOpts(c.text, c.grid, 'Ano', 'Artigos'),
     onClickBar: (idx) => handleFilter('year', String(yearData.raw[idx][0]), String(yearData.raw[idx][0])),
-    articles, activeFilter,
+    articles, activeFilters,
   });
 
   /* ── CHART 2: Citations per year ──────────────────────────── */
@@ -174,7 +174,7 @@ export const DashboardTab: React.FC = () => {
     colorKey: 'accent',
     options: (c) => commonOpts(c.text, c.grid, 'Ano', 'Citações'),
     onClickBar: (idx) => handleFilter('year', String(citeData.raw[idx][0]), String(citeData.raw[idx][0])),
-    articles, activeFilter,
+    articles, activeFilters,
   });
 
   /* ── CHART 3: Top 15 journals ─────────────────────────────── */
@@ -193,7 +193,7 @@ export const DashboardTab: React.FC = () => {
     colorKey: 'primary',
     options: (c) => commonOpts(c.text, c.grid, 'Publicações', 'Periódico', 'y'),
     onClickBar: (idx) => handleFilter('journal', journalData.raw[idx][0], journalData.raw[idx][0]),
-    articles, activeFilter,
+    articles, activeFilters,
   });
 
   /* ── CHART 4: Top 20 authors ──────────────────────────────── */
@@ -212,7 +212,7 @@ export const DashboardTab: React.FC = () => {
     colorKey: '#a855f7',
     options: (c) => commonOpts(c.text, c.grid, 'Artigos', 'Autores', 'y'),
     onClickBar: (idx) => handleFilter('author', authData.raw[idx][0], authData.raw[idx][0]),
-    articles, activeFilter,
+    articles, activeFilters,
   });
 
   /* ── CHART 5: Top conceptual groups ──────────────────────── */
@@ -241,7 +241,7 @@ export const DashboardTab: React.FC = () => {
       const g = grpData.raw[idx];
       handleFilter('conceptual_group', g.norm, g.label);
     },
-    articles, activeFilter,
+    articles, activeFilters,
   });
 
   /* ── CHART 6: Open Access (doughnut) ─────────────────────── */

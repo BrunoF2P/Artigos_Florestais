@@ -78,3 +78,10 @@ export interface DataQualityReport {
   avgCitations: number;
   hIndex: number;
 }
+
+/** A single facet of the composite filter */
+export interface ActiveFilter {
+  type: 'author' | 'keyword' | 'reference' | 'open_access' | 'conceptual_group' | 'year' | 'journal' | 'language';
+  value: string;
+  label: string;
+}

@@ -1,9 +1,0 @@
--- Scopus Base Manager
--- -----------------------------------------------------
--- Compatibility note:
--- The canonical database setup now lives in supabase_setup.sql.
--- That file includes the staging_import table and the process_staging_data
--- RPC used for optional staging/bulk import workflows.
---
--- Keep this file only as a pointer for older notes or scripts that referenced
--- process_staging_data.sql directly.

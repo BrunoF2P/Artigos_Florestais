@@ -1,0 +1,6 @@
+{
+  "name": "Scientia Bibliometrics",
+  "description": "Explorador e Portal avançado de análise de coautorologia e inteligência de dados bibliométricos a partir do Scopus.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

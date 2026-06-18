@@ -1,6 +1,8 @@
 node_modules/
 build/
-.env
-.env.local
-/.svelte-kit
-/.vite
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example

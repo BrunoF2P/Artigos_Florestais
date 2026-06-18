@@ -1,193 +1,63 @@
-# Scopus Base Manager
+# Scientia — Scopus Base Manager (SBM)
 
-Aplicacao web para importar arquivos CSV exportados do Scopus, normalizar os dados em um banco Supabase/Postgres e explorar artigos, autores, palavras-chave e referencias em uma interface pesquisavel.
+Scientia (Scopus Base Manager) é uma plataforma analítica de alto desempenho construída em **HTML5, CSS3 e JavaScript puro (ES6+)** voltada para o processamento, normalização, auditoria e visualização de bases de dados bibliográficas exportadas da plataforma **Scopus**.
 
-O projeto foi pensado para quem baixa uma base bibliografica no Scopus e quer transformar o CSV em tabelas relacionais, com vinculos entre artigos, autores, termos, referencias e tipos de acesso aberto.
+A aplicação foi desenhada com foco em design instrucional, performance e responsividade, operando de forma 100% autônoma no navegador do usuário e integrando um robusto ecossistema de sincronização relacional com o **Supabase** para persistência e compartilhamento de dados.
 
-## O Que O Projeto Faz
+---
 
-- Le CSVs exportados do Scopus diretamente pelo navegador.
-- Reconhece campos comuns como titulo, ano, DOI, autores, palavras-chave, referencias, citacoes e tipos de acesso aberto.
-- Normaliza os dados nas tabelas `artigo`, `autor`, `palavra_chave`, `referencia` e tabelas de relacionamento.
-- Permite explorar a base por artigos, autores, palavras-chave e referencias.
-- Mostra detalhes do artigo, resumo, fonte, identificadores, autores e termos associados.
-- Usa Supabase/Postgres como backend de dados.
+## 🚀 Tecnologias, Linguagens e Ferramentas Utilizadas
 
-## Stack
+O projeto adota uma arquitetura orientada a componentes modulares em Javascript puro para o front-end de forma a garantir máxima modularidade de código, facilidade de auditoria e carregamento ultra instantâneo.
 
-- SvelteKit
-- Svelte 5
-- TypeScript
-- Tailwind CSS
-- Supabase JS
-- Postgres com `pg_trgm`, `unaccent`, RLS, indices e view consolidada
-- PapaParse para leitura de CSV
+*   **Linguagens de Programação e Marcação**:
+    *   **HTML5 Semântico**: Estruturação otimizada para acessibilidade e organização lógica das seções de navegação em abas.
+    *   **CSS3 Moderno**: Folhas de estilo robustas com variáveis de tema centrais (CSS Variables), modo escuro (Dark Mode) ativado nativamente, animações suaves de transição e layouts flexíveis (Flexbox e Grid).
+    *   **JavaScript (ES6+)**: Mecanismo de reatividade assíncrono, estruturação de fluxos complexos, controle físico de atração e repulsão vetorial e gerenciamento de estados.
+*   **Bibliotecas e APIs de Terceiros (CDNs de Alto Desempenho)**:
+    *   **PapaParse (v5.4.1)**: Parser de arquivos CSV com suporte para streaming de dados, tratando anomalias como aspas aninhadas e quebras de linha em células (essencial para o campo de referências).
+    *   **Chart.js (v4.4.1)**: Motor gráfico vetorial de alto desempenho utilizado para renderizar os 8 indicadores analíticos da aplicação.
+    *   **Lucide Icons**: Pacote de ícones minimalistas e modernos renderizados dinamicamente via canvas vetorial do Lucide.
+*   **Persistência de Dados e Banco de Dados Relacional**:
+    *   **Supabase (PostgreSQL)**: Integração via cliente Javascript SDK para armazenamento desacoplado.
+    *   **PL/pgSQL**: Procedures robustas criadas sob medida para processamento de payloads densos em formato JSONB diretamente no servidor de banco de dados, particionando em lotes (batch chunks) e prevenindo timeouts de conexão.
+    *   **SQL Views**: Múltiplas junções otimizadas baseadas em views como `vw_artigos_completos` para recuperar e desmembrar estruturas de tabelas relacionais em frações de segundo.
 
-## Como Preparar O Supabase
+---
 
-1. Crie um projeto no Supabase.
-2. Abra o SQL Editor.
-3. Rode o arquivo [`supabase_setup.sql`](./supabase_setup.sql).
-4. Copie a URL e a publishable/anon key do projeto.
-5. Crie um `.env.local` baseado em `.env.example`:
+## 📖 Guia de Uso Passo a Passo
 
-```bash
-VITE_SUPABASE_URL="https://seu-projeto.supabase.co"
-VITE_SUPABASE_KEY="sua-chave-publica"
-```
+### Passo 1: Preparando a Exportação dos Dados no Scopus
+Para usufruir de todas as análises de coautorias, palavras-chave e citações, você precisará exportar seus dados corretamente:
+1. Acesse o **Scopus** (www.scopus.com) e realize sua busca científica normalmente.
+2. Na página de resultados, selecione as publicações desejadas e clique em **Export** (Exportar).
+3. Selecione a opção **CSV** (importante para compatibilidade do parser).
+4. No menu de seleção de metadados, **marque obrigatoriamente** as seguintes opções:
+   *   *Citation information* (Informações de Citação - Autores, IDs, Título, Ano, Fonte, Volume, Citações, DOI);
+   *   *Bibliographical information* (Informações Bibliográficas - Idioma, Tipo de Documento, ISSN, CODEN, etc);
+   *   *Abstract & keywords* (Resumo e Palavras-chave - Palavras-chave do Autor e Indexadas);
+   *   *Other information* (Outras Informações - **Include References / Incluir Referências**).
+5. Clique em **Export** e baixe o arquivo `.csv`.
 
-O setup cria extensoes, tabelas, indices, trigger de busca, view `vw_artigos_completos`, policies publicas e uma estrutura opcional de staging/RPC para importacoes em lote.
+### Passo 2: Carregando os Dados no Scientia
+1. Com a aplicação aberta, arraste o arquivo do Scopus CSV baixado diretamente para a área central tracejada (**Dropzone**) ou clique no botão **"Selecionar Arquivo CSV"** para localizar o arquivo em seu computador.
+2. Se a sua base já contiver artigos carregados na memória ativa, o Scientia apresentará um diálogo interativo perguntando se deseja **MESCLAR** (combinar arquivos de buscas diferentes acumulando os artigos) ou **SUBSTITUIR** (limpar a base antiga e começar uma análise limpa). Clique na opção desejada.
 
-Para uma reinstalacao limpa, limpe as tabelas manualmente no Supabase antes de rodar uma nova carga. O setup principal nao executa `TRUNCATE` para evitar perda acidental de dados.
+### Passo 3: Navegando pelas Funcionalidades e Abas
+Use o menu superior lateral e clique entre as abas para explorar as análises dinâmicas:
+*   📊 **Dashboard**: Visualize painéis com KPIs em tempo real (Total de Artigos, Autores unificados, Soma de Citações e Janela Temporal) e os 8 gráficos estáticos autoajustáveis das publicações.
+*   🌐 **Mapa de Redes**: Navegue pela representação estrutural da sua base científica. Escolha entre **Coocorrência de Termos** (Palavras-chave) ou **Coautoria (Co-authorship)**. Os nós do gráfico possuem simulação física de gravidade por molas:
+    *   *Mova nós* clicando e arrastando-os com o cursor.
+    *   *Dê zoom* utilizando o scroll (roda do mouse) sobre a tela do canvas.
+    *   *Foque parceiros e relevância* passando o mouse (hover) em um nó específico.
+*   📄 **Artigos / Autores / Palavras / Referências / Acesso**: Explore tabelas completas, interativas e paginadas com buscas internas focadas em cada entidade bibliométrica. Nessa seção, é possível verificar os rankings de autores mais citados e os periódicos de maior impacto de forma limpa.
+*   🩺 **Placa de Integridade (Diagnóstico)**: Verifique o nível de qualidade dos metadados da sua base. O Scientia audita a ausência de abstracts, DOIs estruturados, idiomas catalogados e consistência nas referências.
 
-## Rodando Localmente
+### Passo 4: Sincronizando com o Supabase (Nuvem)
+Para salvar seus dados com segurança de nível de produção e acessá-los de qualquer dispositivo:
+1. Abra o painel lateral de **"Configurações / Conexão Banco"** clicando no ícone de engrenagem.
+2. Insira a **URL do seu Projeto Supabase** e sua **Chave Pública (Anon Key)**.
+3. Se você ainda não possui as tabelas criadas no banco, abra o arquivo SQL integrado no projeto e execute o comando DDL de criação estrutural das tabelas e views relacionais diretamente no **SQL Editor** do painel do Supabase.
+4. Clique em **"Sincronizar com Supabase"**. A ferramenta irá dividir seus dados bibliométricos de forma procedural e realizar upserts paralelos em lotes para garantir integridade perfeita sem gerar custos pesados ou lentidão de conexão.
 
-```bash
-npm install
-npm run dev
-```
 
-Build de producao:
-
-```bash
-npm run build
-```
-
-Preview local do build:
-
-```bash
-npm run preview
-```
-
-Checagem Svelte/TypeScript:
-
-```bash
-npm run check
-```
-
-## Formato Esperado Do CSV Do Scopus
-
-O importador aceita CSVs combinados exportados do Scopus. Os nomes abaixo sao os principais campos reconhecidos:
-
-| Campo do CSV                                  | Destino                                   | Observacao                                                                                                               |
-| --------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `Scopus ID` ou `EID`                          | `artigo.scopus_id`                        | Usado para deduplicar artigos.                                                                                           |
-| `Title`                                       | `artigo.titulo`                           | Campo obrigatorio para identificar o artigo.                                                                             |
-| `Year`                                        | `artigo.ano`                              | Validado no banco pelo intervalo permitido.                                                                              |
-| `Source title` ou `Source`                    | `artigo.source_title`, `artigo.source`    | Revista, evento ou origem.                                                                                               |
-| `Cited by`                                    | `artigo.cited_by`                         | Numero de citacoes.                                                                                                      |
-| `DOI` ou `Doi`                                | `artigo.doi`                              | Normalizado em `doi_normalizado`.                                                                                        |
-| `Link` ou `URL`                               | `artigo.link`                             | Link externo para publicacao.                                                                                            |
-| `Abstract`                                    | `artigo.resumo`                           | Texto usado tambem no vetor de busca.                                                                                    |
-| `ISSN`, `ISBN`, `CODEN`                       | `artigo`                                  | Identificadores bibliograficos.                                                                                          |
-| `Language of Original Document` ou `Language` | `artigo.linguagem`                        | Idioma do documento.                                                                                                     |
-| `Document Type`                               | `artigo.document_type`                    | Tipo do documento.                                                                                                       |
-| `Author(s) ID`                                | `autor.id` e `artigo_autor`               | IDs do Scopus separados por `;`, `                                                                                       | `ou`,`. |
-| `Author full names`                           | `autor.nome_completo`                     | Usado para preencher nomes completos quando disponivel.                                                                  |
-| `Authors`                                     | `autor.nome`                              | Fallback para autores.                                                                                                   |
-| `Author Keywords`                             | `palavra_chave` tipo `author`             | Termos separados por `;` ou `                                                                                            | `.      |
-| `Index Keywords`                              | `palavra_chave` tipo `index`              | Termos de indexacao.                                                                                                     |
-| `References`                                  | `referencia` e `artigo_referencia`        | Referencias brutas; o importer tenta extrair `titulo`, `ano` e `doi`.                                                    |
-| `Open Access`                                 | `open_access_tipo` e `artigo_open_access` | Tipos como `All Open Access`, `Gold Open Access`, `Green Open Access`, `Hybrid Gold Open Access` e `Bronze Open Access`. |
-
-## Modelo De Dados
-
-Tabelas principais:
-
-- `artigo`: publicacoes importadas, com metadados, DOI, citacoes, fonte e vetor de busca.
-- `autor`: autores identificados pelo Scopus Author ID.
-- `palavra_chave`: termos de autor e termos indexados.
-- `referencia`: referencias brutas extraidas do campo `References`, com enriquecimento por melhor esforco para `titulo`, `ano` e `doi`.
-- `open_access_tipo`: tipos de acesso aberto.
-
-Relacionamentos:
-
-- `artigo_autor`: vincula artigos e autores.
-- `artigo_palavra_chave`: vincula artigos e palavras-chave.
-- `artigo_referencia`: vincula artigos e referencias citadas.
-- `artigo_open_access`: vincula artigos e tipos de acesso aberto.
-
-View de leitura:
-
-- `vw_artigos_completos`: agrega artigos com arrays de autores, palavras-chave e tipos de acesso aberto para consumo pela interface.
-
-## Fluxo De Uso
-
-1. Exporte a base no Scopus em formato CSV.
-2. Abra o Scopus Base Manager.
-3. Clique em **Importar CSV**.
-4. Solte ou selecione um ou mais arquivos `.csv`.
-5. Aguarde a leitura, normalizacao e gravacao no Supabase.
-6. Explore a base por artigos, autores, palavras-chave e referencias.
-
-## Reimportando Apos Atualizar O Importer
-
-Se sua base foi importada antes do suporte completo a referencias e Open Access, as tabelas `artigo_referencia`, `open_access_tipo` e `artigo_open_access` podem estar vazias. A forma mais previsivel de corrigir e:
-
-1. Rode o `supabase_setup.sql` atualizado no Supabase.
-2. Limpe os dados antigos ou, no minimo, limpe os vinculos derivados.
-3. Reimporte o CSV original pelo app.
-
-Para uma limpeza completa da base antes de uma nova carga, use com cuidado:
-
-```sql
-TRUNCATE TABLE
-  artigo_open_access,
-  artigo_referencia,
-  artigo_palavra_chave,
-  artigo_autor,
-  open_access_tipo,
-  referencia,
-  palavra_chave,
-  autor,
-  artigo
-RESTART IDENTITY CASCADE;
-```
-
-Se preferir preservar artigos e autores, limpe apenas os dados derivados que serao reconstruidos pela reimportacao:
-
-```sql
-TRUNCATE TABLE
-  artigo_open_access,
-  artigo_referencia,
-  open_access_tipo
-RESTART IDENTITY CASCADE;
-```
-
-## Estrutura Do Projeto
-
-```text
-src/
-  lib/
-    components/       Componentes Svelte da interface
-    db.ts             Cliente Supabase
-    importer.ts       Parser e normalizador do CSV
-  routes/+page.svelte Tela principal
-supabase_setup.sql    Setup completo do banco
-process_staging_data.sql Nota de compatibilidade da RPC
-```
-
-## Variaveis De Ambiente
-
-| Variavel            | Descricao                                           |
-| ------------------- | --------------------------------------------------- |
-| `VITE_SUPABASE_URL` | URL do projeto Supabase.                            |
-| `VITE_SUPABASE_KEY` | Chave publica publishable/anon usada pelo frontend. |
-
-## Deploy
-
-O projeto usa `@sveltejs/adapter-static`. Em producao, o `base path` configurado em `svelte.config.js` e:
-
-```text
-/scopus-base-manager
-```
-
-Se o deploy for feito na raiz do dominio, remova ou ajuste esse `base`.
-
-## Limitações Conhecidas
-
-- O app atual faz parsing e normalizacao no navegador antes de gravar no Supabase.
-- A RPC `process_staging_data` fica disponivel no SQL para fluxos de staging/bulk import, mas a tela atual usa insercoes diretas via Supabase JS.
-- Referencias dependem da qualidade do campo `References` exportado pelo Scopus. O CSV coloca todas as referencias em uma celula e tambem usa `;` dentro da lista de autores, entao a separacao e heuristica.
-- A extracao de `ano` e `doi` das referencias tende a ser mais confiavel que a extracao de `titulo`.
-- A policy publica atual facilita testes e demos, mas deve ser revisada antes de usar com dados sensiveis ou em ambiente multiusuario.

@@ -177,8 +177,9 @@ CREATE TABLE IF NOT EXISTS scopus_articles (
     cited_by INTEGER,
     doi TEXT,
     abstract TEXT,
-    authors_data JSONB,
+    language TEXT,
     open_access TEXT,
+    authors_data JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -244,136 +245,92 @@ FROM artigo a;
 -- 11. Procedures PL/pgSQL para Processamento de Lotes (RPC)
 -- =========================================================================
 
--- Função process_chunk: Realiza upserts de payloads relacionais parciais com mapeamentos temporários
+-- Função process_chunk: Realiza upserts de payloads relacionais parciais de forma ultra-rápida via joins de conjunto
 CREATE OR REPLACE FUNCTION process_chunk(p_payload jsonb)
 RETURNS void AS $$
-DECLARE
-    v_artigo jsonb;
-    v_autor jsonb;
-    v_kw jsonb;
-    v_ref jsonb;
-    v_oa jsonb;
-    v_rel jsonb;
-    v_artigo_id integer;
-    v_kw_id integer;
-    v_ref_id integer;
-    v_oa_id integer;
 BEGIN
-    -- Tabelas temporárias para mapear IDs parciais gerados na requisição
-    CREATE TEMP TABLE IF NOT EXISTS temp_kw_map (temp_id integer, real_id integer) ON COMMIT DROP;
-    CREATE TEMP TABLE IF NOT EXISTS temp_ref_map (temp_id integer, real_id integer) ON COMMIT DROP;
-    CREATE TEMP TABLE IF NOT EXISTS temp_oa_map (temp_id integer, real_id integer) ON COMMIT DROP;
-    
-    TRUNCATE TABLE temp_kw_map;
-    TRUNCATE TABLE temp_ref_map;
-    TRUNCATE TABLE temp_oa_map;
+    -- A. Inserir/Atualizar Artigos em lote
+    INSERT INTO artigo (scopus_id, titulo, resumo, ano, source, cited_by, doi, link, issn, isbn, coden, linguagem, document_type)
+    SELECT scopus_id, titulo, resumo, ano, source, cited_by, doi, link, issn, isbn, coden, linguagem, document_type
+    FROM jsonb_to_recordset(p_payload->'artigo') 
+      AS (scopus_id text, titulo text, resumo text, ano integer, source text, cited_by integer, doi text, link text, issn text, isbn text, coden text, linguagem text, document_type text)
+    ON CONFLICT (scopus_id) DO UPDATE SET
+        titulo = EXCLUDED.titulo,
+        resumo = EXCLUDED.resumo,
+        ano = EXCLUDED.ano,
+        source = EXCLUDED.source,
+        cited_by = EXCLUDED.cited_by,
+        doi = EXCLUDED.doi,
+        link = EXCLUDED.link,
+        issn = EXCLUDED.issn,
+        isbn = EXCLUDED.isbn,
+        coden = EXCLUDED.coden,
+        linguagem = EXCLUDED.linguagem,
+        document_type = EXCLUDED.document_type;
 
-    -- A. Inserir/Atualizar Artigos
-    FOR v_artigo IN SELECT * FROM jsonb_to_recordset(p_payload->'artigo') 
-        AS (scopus_id text, titulo text, resumo text, ano integer, source text, cited_by integer, doi text, link text, issn text, isbn text, coden text, linguagem text, document_type text) 
-    LOOP
-        INSERT INTO artigo (scopus_id, titulo, resumo, ano, source, cited_by, doi, link, issn, isbn, coden, linguagem, document_type)
-        VALUES (v_artigo.scopus_id, v_artigo.titulo, v_artigo.resumo, v_artigo.ano, v_artigo.source, v_artigo.cited_by, v_artigo.doi, v_artigo.link, v_artigo.issn, v_artigo.isbn, v_artigo.coden, v_artigo.linguagem, v_artigo.document_type)
-        ON CONFLICT (scopus_id) DO UPDATE SET
-            titulo = EXCLUDED.titulo,
-            resumo = EXCLUDED.resumo,
-            ano = EXCLUDED.ano,
-            source = EXCLUDED.source,
-            cited_by = EXCLUDED.cited_by,
-            doi = EXCLUDED.doi,
-            link = EXCLUDED.link,
-            issn = EXCLUDED.issn,
-            isbn = EXCLUDED.isbn,
-            coden = EXCLUDED.coden,
-            linguagem = EXCLUDED.linguagem,
-            document_type = EXCLUDED.document_type;
-    END LOOP;
+    -- B. Inserir/Atualizar Autores em lote
+    INSERT INTO autor (id, nome, nome_completo)
+    SELECT id, nome, nome_completo
+    FROM jsonb_to_recordset(p_payload->'autor') AS (id bigint, nome text, nome_completo text)
+    ON CONFLICT (id) DO UPDATE SET
+        nome = EXCLUDED.nome,
+        nome_completo = EXCLUDED.nome_completo;
 
-    -- B. Inserir/Atualizar Autores
-    FOR v_autor IN SELECT * FROM jsonb_to_recordset(p_payload->'autor') AS (id bigint, nome text, nome_completo text) LOOP
-        INSERT INTO autor (id, nome, nome_completo)
-        VALUES (v_autor.id, v_autor.nome, v_autor.nome_completo)
-        ON CONFLICT (id) DO UPDATE SET
-            nome = EXCLUDED.nome,
-            nome_completo = EXCLUDED.nome_completo;
-    END LOOP;
+    -- C. Inserir Palavras-Chave em lote (ignora duplicadas)
+    INSERT INTO palavra_chave (palavra, tipo)
+    SELECT DISTINCT palavra, tipo
+    FROM jsonb_to_recordset(p_payload->'palavra_chave') AS (palavra text, tipo text)
+    ON CONFLICT (palavra, tipo) DO NOTHING;
 
-    -- C. Inserir Palavras-Chave & Mapear IDs
-    FOR v_kw IN SELECT * FROM jsonb_to_recordset(p_payload->'palavra_chave') AS (temp_id integer, palavra text, tipo text) LOOP
-        INSERT INTO palavra_chave (palavra, tipo)
-        VALUES (v_kw.palavra, v_kw.tipo)
-        ON CONFLICT (palavra, tipo) DO UPDATE SET palavra = EXCLUDED.palavra
-        RETURNING id INTO v_kw_id;
-        
-        INSERT INTO temp_kw_map (temp_id, real_id) VALUES (v_kw.temp_id, v_kw_id);
-    END LOOP;
+    -- D. Inserir Referências em lote
+    INSERT INTO referencia (raw_reference, titulo, ano, doi)
+    SELECT DISTINCT raw_reference, titulo, ano, doi
+    FROM jsonb_to_recordset(p_payload->'referencia') AS (raw_reference text, titulo text, ano integer, doi text)
+    ON CONFLICT (raw_reference) DO UPDATE SET 
+        titulo = EXCLUDED.titulo,
+        ano = EXCLUDED.ano,
+        doi = EXCLUDED.doi;
 
-    -- D. Inserir Referências & Mapear IDs
-    FOR v_ref IN SELECT * FROM jsonb_to_recordset(p_payload->'referencia') AS (temp_id integer, raw_reference text, titulo text, ano integer, doi text) LOOP
-        INSERT INTO referencia (raw_reference, titulo, ano, doi)
-        VALUES (v_ref.raw_reference, v_ref.titulo, v_ref.ano, v_ref.doi)
-        ON CONFLICT (raw_reference) DO UPDATE SET 
-            titulo = EXCLUDED.titulo,
-            ano = EXCLUDED.ano,
-            doi = EXCLUDED.doi
-        RETURNING id INTO v_ref_id;
-        
-        INSERT INTO temp_ref_map (temp_id, real_id) VALUES (v_ref.temp_id, v_ref_id);
-    END LOOP;
+    -- E. Inserir Tipos de Acesso em lote
+    INSERT INTO open_access_tipo (nome)
+    SELECT DISTINCT nome
+    FROM jsonb_to_recordset(p_payload->'open_access_tipo') AS (nome text)
+    ON CONFLICT (nome) DO NOTHING;
 
-    -- E. Inserir Tipos de Acesso & Mapear IDs
-    FOR v_oa IN SELECT * FROM jsonb_to_recordset(p_payload->'open_access_tipo') AS (temp_id integer, nome text) LOOP
-        INSERT INTO open_access_tipo (nome)
-        VALUES (v_oa.nome)
-        ON CONFLICT (nome) DO UPDATE SET nome = EXCLUDED.nome
-        RETURNING id INTO v_oa_id;
-        
-        INSERT INTO temp_oa_map (temp_id, real_id) VALUES (v_oa.temp_id, v_oa_id);
-    END LOOP;
-
-    -- F. Inserir Relações N-para-N
+    -- F. Inserir Relações N-para-N vinculando chaves em lote
     -- Artigo <-> Autor
-    FOR v_rel IN SELECT * FROM jsonb_to_recordset(p_payload->'artigo_autor') AS (temp_scopus_id text, autor_id bigint) LOOP
-        SELECT id INTO v_artigo_id FROM artigo WHERE scopus_id = v_rel.temp_scopus_id;
-        IF v_artigo_id IS NOT NULL THEN
-            INSERT INTO artigo_autor (artigo_id, autor_id)
-            VALUES (v_artigo_id, v_rel.autor_id)
-            ON CONFLICT (artigo_id, autor_id) DO NOTHING;
-        END IF;
-    END LOOP;
+    INSERT INTO artigo_autor (artigo_id, autor_id)
+    SELECT DISTINCT a.id, rel.autor_id
+    FROM jsonb_to_recordset(p_payload->'artigo_autor') AS rel(temp_scopus_id text, autor_id bigint)
+    JOIN artigo a ON a.scopus_id = rel.temp_scopus_id
+    ON CONFLICT (artigo_id, autor_id) DO NOTHING;
 
     -- Artigo <-> Palavra-Chave
-    FOR v_rel IN SELECT * FROM jsonb_to_recordset(p_payload->'artigo_palavra_chave') AS (temp_scopus_id text, temp_kw_id integer) LOOP
-        SELECT id INTO v_artigo_id FROM artigo WHERE scopus_id = v_rel.temp_scopus_id;
-        SELECT real_id INTO v_kw_id FROM temp_kw_map WHERE temp_id = v_rel.temp_kw_id;
-        IF v_artigo_id IS NOT NULL AND v_kw_id IS NOT NULL THEN
-            INSERT INTO artigo_palavra_chave (artigo_id, palavra_chave_id)
-            VALUES (v_artigo_id, v_kw_id)
-            ON CONFLICT (artigo_id, palavra_chave_id) DO NOTHING;
-        END IF;
-    END LOOP;
+    INSERT INTO artigo_palavra_chave (artigo_id, palavra_chave_id)
+    SELECT DISTINCT a.id, pc.id
+    FROM jsonb_to_recordset(p_payload->'artigo_palavra_chave') AS rel(temp_scopus_id text, temp_kw_id integer)
+    JOIN artigo a ON a.scopus_id = rel.temp_scopus_id
+    JOIN jsonb_to_recordset(p_payload->'palavra_chave') AS kw(temp_id integer, palavra text, tipo text) ON kw.temp_id = rel.temp_kw_id
+    JOIN palavra_chave pc ON pc.palavra = kw.palavra AND pc.tipo = kw.tipo
+    ON CONFLICT (artigo_id, palavra_chave_id) DO NOTHING;
 
     -- Artigo <-> Referência
-    FOR v_rel IN SELECT * FROM jsonb_to_recordset(p_payload->'artigo_referencia') AS (temp_scopus_id text, temp_ref_id integer) LOOP
-        SELECT id INTO v_artigo_id FROM artigo WHERE scopus_id = v_rel.temp_scopus_id;
-        SELECT real_id INTO v_ref_id FROM temp_ref_map WHERE temp_id = v_rel.temp_ref_id;
-        IF v_artigo_id IS NOT NULL AND v_ref_id IS NOT NULL THEN
-            INSERT INTO artigo_referencia (artigo_id, referencia_id)
-            VALUES (v_artigo_id, v_ref_id)
-            ON CONFLICT (artigo_id, referencia_id) DO NOTHING;
-        END IF;
-    END LOOP;
+    INSERT INTO artigo_referencia (artigo_id, referencia_id)
+    SELECT DISTINCT a.id, r.id
+    FROM jsonb_to_recordset(p_payload->'artigo_referencia') AS rel(temp_scopus_id text, temp_ref_id integer)
+    JOIN artigo a ON a.scopus_id = rel.temp_scopus_id
+    JOIN jsonb_to_recordset(p_payload->'referencia') AS ref(temp_id integer, raw_reference text) ON ref.temp_id = rel.temp_ref_id
+    JOIN referencia r ON r.raw_reference = ref.raw_reference
+    ON CONFLICT (artigo_id, referencia_id) DO NOTHING;
 
     -- Artigo <-> Open Access
-    FOR v_rel IN SELECT * FROM jsonb_to_recordset(p_payload->'artigo_open_access') AS (temp_scopus_id text, temp_oa_id integer) LOOP
-        SELECT id INTO v_artigo_id FROM artigo WHERE scopus_id = v_rel.temp_scopus_id;
-        SELECT real_id INTO v_oa_id FROM temp_oa_map WHERE temp_id = v_rel.temp_oa_id;
-        IF v_artigo_id IS NOT NULL AND v_oa_id IS NOT NULL THEN
-            INSERT INTO artigo_open_access (artigo_id, open_access_id)
-            VALUES (v_artigo_id, v_oa_id)
-            ON CONFLICT (artigo_id, open_access_id) DO NOTHING;
-        END IF;
-    END LOOP;
+    INSERT INTO artigo_open_access (artigo_id, open_access_id)
+    SELECT DISTINCT a.id, oa.id
+    FROM jsonb_to_recordset(p_payload->'artigo_open_access') AS rel(temp_scopus_id text, temp_oa_id integer)
+    JOIN artigo a ON a.scopus_id = rel.temp_scopus_id
+    JOIN jsonb_to_recordset(p_payload->'open_access_tipo') AS oat(temp_id integer, nome text) ON oat.temp_id = rel.temp_oa_id
+    JOIN open_access_tipo oa ON oa.nome = oat.nome
+    ON CONFLICT (artigo_id, open_access_id) DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;
 

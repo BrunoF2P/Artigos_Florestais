@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: '/Artigos_Florestais/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
